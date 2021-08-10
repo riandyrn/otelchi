@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/oteltest"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -52,41 +53,73 @@ func TestChildSpanFromCustomTracer(t *testing.T) {
 	router.ServeHTTP(w, r)
 }
 
-func TestChildSpanNames(t *testing.T) {
-	spanRecorder := new(oteltest.SpanRecorder)
-	provider := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(spanRecorder))
+func TestChildSpanAttributes(t *testing.T) {
+	testCases := []struct {
+		Name              string
+		Request           *http.Request
+		SpanName          string
+		HTTPMethod        string
+		Target            string
+		Route             string
+		RespContentLength int
+	}{
+		{
+			Name:              "Test First Route",
+			Request:           httptest.NewRequest(http.MethodGet, "/user/123?query=abc", nil),
+			SpanName:          "/user/{id}",
+			HTTPMethod:        http.MethodGet,
+			Target:            "/user/123?query=abc",
+			Route:             "/user/{id}",
+			RespContentLength: 0,
+		},
+		{
+			Name:              "Test Second Route",
+			Request:           httptest.NewRequest(http.MethodPost, "/book/hello_world?output=json", nil),
+			SpanName:          "/book/{title}",
+			HTTPMethod:        http.MethodPost,
+			Target:            "/book/hello_world?output=json",
+			Route:             "/book/{title}",
+			RespContentLength: 2,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			spanRecorder := new(oteltest.SpanRecorder)
+			provider := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(spanRecorder))
 
-	router := chi.NewRouter()
-	router.Use(otelchi.Middleware("foobar", otelchi.WithTracerProvider(provider)))
+			router := chi.NewRouter()
+			router.Use(otelchi.Middleware("foobar", otelchi.WithTracerProvider(provider)))
+			router.HandleFunc(
+				"/user/{id}",
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}),
+			)
+			router.HandleFunc(
+				"/book/{title}",
+				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte("ok"))
+				}),
+			)
 
-	router.HandleFunc(
-		"/user/{id}",
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-		}),
-	)
-	router.HandleFunc(
-		"/book/{title}",
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte("ok"))
-		}),
-	)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, testCase.Request)
 
-	r, _ := http.NewRequest(http.MethodGet, "/user/123?query=abc", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r)
+			spans := spanRecorder.Completed()
+			require.Len(t, spans, 1)
 
-	spans := spanRecorder.Completed()
-	require.Len(t, spans, 1)
-
-	span := spans[0]
-	assert.Equal(t, "/user/{id}", span.Name())
-	assert.Equal(t, oteltrace.SpanKindServer, span.SpanKind())
-	assert.Equal(t, attribute.StringValue("foobar"), span.Attributes()["http.server_name"])
-	assert.Equal(t, attribute.IntValue(http.StatusOK), span.Attributes()["http.status_code"])
-	assert.Equal(t, attribute.StringValue("GET"), span.Attributes()["http.method"])
-	assert.Equal(t, attribute.StringValue("/user/123?query=abc"), span.Attributes()["http.target"])
-	assert.Equal(t, attribute.StringValue("/user/{id}"), span.Attributes()["http.route"])
+			span := spans[0]
+			attributeMap := span.Attributes()
+			assert.Equal(t, testCase.SpanName, span.Name())
+			assert.Equal(t, oteltrace.SpanKindServer, span.SpanKind())
+			assert.Equal(t, attribute.StringValue("foobar"), attributeMap[semconv.HTTPServerNameKey])
+			assert.Equal(t, attribute.IntValue(http.StatusOK), attributeMap[semconv.HTTPStatusCodeKey])
+			assert.Equal(t, attribute.StringValue(testCase.HTTPMethod), attributeMap[semconv.HTTPMethodKey])
+			assert.Equal(t, attribute.StringValue(testCase.Target), attributeMap[semconv.HTTPTargetKey])
+			assert.Equal(t, attribute.StringValue(testCase.Route), attributeMap[semconv.HTTPRouteKey])
+			assert.Equal(t, attribute.IntValue(testCase.RespContentLength), attributeMap[semconv.HTTPResponseContentLengthKey])
+		})
+	}
 }
 
 func TestPropagationWithGlobalPropagators(t *testing.T) {}
