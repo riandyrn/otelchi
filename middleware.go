@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	tracerName = "github.com/riandyrn/otelchi"
+	TracerName = "github.com/riandyrn/otelchi"
 )
 
 func Middleware(serverName string, opts ...Option) func(next http.Handler) http.Handler {
@@ -29,7 +29,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 		cfg.TracerProvider = otel.GetTracerProvider()
 	}
 	tracer := cfg.TracerProvider.Tracer(
-		tracerName,
+		TracerName,
 		oteltrace.WithInstrumentationVersion(otelcontrib.SemVersion()),
 	)
 	if cfg.Propagators == nil {
