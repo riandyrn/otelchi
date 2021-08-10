@@ -1,0 +1,129 @@
+package otelchi
+
+import (
+	"fmt"
+	"net/http"
+	"strings"
+	"sync"
+
+	"github.com/felixge/httpsnoop"
+	"github.com/go-chi/chi"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+
+	otelcontrib "go.opentelemetry.io/contrib"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	oteltrace "go.opentelemetry.io/otel/trace"
+)
+
+const (
+	tracerName = "github.com/riandyrn/otelchi"
+)
+
+func Middleware(serverName string, opts ...Option) func(next http.Handler) http.Handler {
+	cfg := config{}
+	for _, opt := range opts {
+		opt.apply(&cfg)
+	}
+	if cfg.TracerProvider == nil {
+		cfg.TracerProvider = otel.GetTracerProvider()
+	}
+	tracer := cfg.TracerProvider.Tracer(
+		tracerName,
+		oteltrace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+	)
+	if cfg.Propagators == nil {
+		cfg.Propagators = otel.GetTextMapPropagator()
+	}
+	return func(handler http.Handler) http.Handler {
+		return traceware{
+			serverName:  serverName,
+			tracer:      tracer,
+			propagators: cfg.Propagators,
+			handler:     handler,
+		}
+	}
+}
+
+type traceware struct {
+	serverName  string
+	tracer      oteltrace.Tracer
+	propagators propagation.TextMapPropagator
+	handler     http.Handler
+}
+
+type recordingResponseWriter struct {
+	writer        http.ResponseWriter
+	written       bool
+	status        int
+	contentLength int
+}
+
+var rrwPool = &sync.Pool{
+	New: func() interface{} {
+		return &recordingResponseWriter{}
+	},
+}
+
+func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
+	rrw := rrwPool.Get().(*recordingResponseWriter)
+	rrw.written = false
+	rrw.status = 0
+	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
+		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+			return func(b []byte) (int, error) {
+				if !rrw.written {
+					rrw.written = true
+					rrw.status = http.StatusOK
+				}
+				rrw.contentLength = len(b)
+				return next(b)
+			}
+		},
+		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(statusCode int) {
+				if !rrw.written {
+					rrw.written = true
+					rrw.status = statusCode
+				}
+				next(statusCode)
+			}
+		},
+	})
+	return rrw
+}
+
+func putRRW(rrw *recordingResponseWriter) {
+	rrw.writer = nil
+	rrwPool.Put(rrw)
+}
+
+// ServeHTTP implements the http.Handler interface. It does the actual
+// tracing of the request.
+func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := tw.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+	rctx := chi.RouteContext(r.Context())
+	spanName := strings.Join(rctx.RoutePatterns, "")
+	routeStr := spanName
+	if spanName == "" {
+		spanName = fmt.Sprintf("HTTP %s route not found", r.Method)
+	}
+	opts := []oteltrace.SpanStartOption{
+		oteltrace.WithAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...),
+		oteltrace.WithAttributes(semconv.EndUserAttributesFromHTTPRequest(r)...),
+		oteltrace.WithAttributes(semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r)...),
+		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
+	}
+	ctx, span := tw.tracer.Start(ctx, spanName, opts...)
+	defer span.End()
+	r2 := r.WithContext(ctx)
+	rrw := getRRW(w)
+	defer putRRW(rrw)
+	tw.handler.ServeHTTP(rrw.writer, r2)
+	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
+	attrs = append(attrs, semconv.HTTPResponseContentLengthKey.Int(rrw.contentLength))
+	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
+	span.SetAttributes(attrs...)
+	span.SetStatus(spanStatus, spanMessage)
+}
