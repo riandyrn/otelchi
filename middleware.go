@@ -1,7 +1,6 @@
 package otelchi
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -103,27 +102,27 @@ func putRRW(rrw *recordingResponseWriter) {
 // tracing of the request.
 func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := tw.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
-	rctx := chi.RouteContext(r.Context())
-	spanName := strings.Join(rctx.RoutePatterns, "")
-	routeStr := spanName
-	if spanName == "" {
-		spanName = fmt.Sprintf("HTTP %s route not found", r.Method)
-	}
-	opts := []oteltrace.SpanStartOption{
-		oteltrace.WithAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...),
-		oteltrace.WithAttributes(semconv.EndUserAttributesFromHTTPRequest(r)...),
-		oteltrace.WithAttributes(semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r)...),
-		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
-	}
-	ctx, span := tw.tracer.Start(ctx, spanName, opts...)
+	ctx, span := tw.tracer.Start(ctx, "", oteltrace.WithSpanKind(oteltrace.SpanKindServer))
 	defer span.End()
+
 	r2 := r.WithContext(ctx)
 	rrw := getRRW(w)
 	defer putRRW(rrw)
 	tw.handler.ServeHTTP(rrw.writer, r2)
+
+	routeStr := strings.Join(chi.RouteContext(r2.Context()).RoutePatterns, "")
 	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
-	attrs = append(attrs, semconv.HTTPResponseContentLengthKey.Int(rrw.contentLength))
-	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
+	attrs = append(attrs, semconv.NetAttributesFromHTTPRequest("tcp", r2)...)
+	attrs = append(attrs, semconv.EndUserAttributesFromHTTPRequest(r2)...)
+	attrs = append(attrs, semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r2)...)
+	attrs = append(
+		attrs,
+		semconv.HTTPResponseContentLengthKey.Int(rrw.contentLength),
+		semconv.HTTPTargetKey.String(r2.URL.String()),
+	)
 	span.SetAttributes(attrs...)
+	span.SetName(routeStr)
+
+	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
 	span.SetStatus(spanStatus, spanMessage)
 }
