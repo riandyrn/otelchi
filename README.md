@@ -1,6 +1,6 @@
 # otelchi
 
-[![ci](https://github.com/riandyrn/otelchi/actions/workflows/ci.yaml/badge.svg?branch=main)](https://github.com/riandyrn/otelchi/actions/workflows/ci.yaml)
+[![ci](https://github.com/riandyrn/otelchi/actions/workflows/ci.yaml/badge.svg)](https://github.com/riandyrn/otelchi/actions/workflows/ci.yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/riandyrn/otelchi)](https://goreportcard.com/report/github.com/riandyrn/otelchi)
 [![Documentation](https://godoc.org/github.com/riandyrn/otelchi?status.svg)](https://pkg.go.dev/mod/github.com/riandyrn/otelchi)
 
