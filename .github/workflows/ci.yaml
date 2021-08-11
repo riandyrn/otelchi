@@ -2,7 +2,7 @@ name: ci
 on:
   push:
     branches:
-      - main
+      - master
   pull_request:
 env:
   DEFAULT_GO_VERSION: 1.15
