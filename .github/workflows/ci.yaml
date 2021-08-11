@@ -3,6 +3,7 @@ on:
   push:
     paths-ignore:
       - "**.md"
+      - LICENCE
     branches:
       - master
   pull_request:

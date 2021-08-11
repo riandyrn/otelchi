@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gorilla/mux/otelmux"
+	"github.com/riandyrn/otelchi"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -35,7 +35,7 @@ func main() {
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelmux.Middleware("my-server"))
+	r.Use(otelchi.Middleware("my-server"))
 	r.HandleFunc("/users/{id:[0-9]+}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 		name := getUser(r.Context(), id)
