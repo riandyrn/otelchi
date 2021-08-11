@@ -17,9 +17,12 @@ import (
 )
 
 const (
-	TracerName = "github.com/riandyrn/otelchi"
+	tracerName = "github.com/riandyrn/otelchi"
 )
 
+// Middleware sets up a handler to start tracing the incoming
+// requests. The serverName parameter should describe the name of the
+// (virtual) server handling the request.
 func Middleware(serverName string, opts ...Option) func(next http.Handler) http.Handler {
 	cfg := config{}
 	for _, opt := range opts {
@@ -29,7 +32,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 		cfg.TracerProvider = otel.GetTracerProvider()
 	}
 	tracer := cfg.TracerProvider.Tracer(
-		TracerName,
+		tracerName,
 		oteltrace.WithInstrumentationVersion(otelcontrib.SemVersion()),
 	)
 	if cfg.Propagators == nil {

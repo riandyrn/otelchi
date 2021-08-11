@@ -151,7 +151,7 @@ func TestPropagationWithGlobalPropagators(t *testing.T) {
 	r := httptest.NewRequest("GET", "/user/123", nil)
 	w := httptest.NewRecorder()
 
-	ctx, pspan := provider.Tracer(otelchi.TracerName).Start(context.Background(), "test")
+	ctx, pspan := provider.Tracer(tracerName).Start(context.Background(), "test")
 	otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(r.Header))
 
 	router := chi.NewRouter()
@@ -168,6 +168,8 @@ func TestPropagationWithGlobalPropagators(t *testing.T) {
 	router.ServeHTTP(w, r)
 }
 
+const tracerName = "test-tracer"
+
 func TestPropagationWithCustomPropagators(t *testing.T) {
 	sr := new(oteltest.SpanRecorder)
 	provider := oteltest.NewTracerProvider(oteltest.WithSpanRecorder(sr))
@@ -177,7 +179,7 @@ func TestPropagationWithCustomPropagators(t *testing.T) {
 	r := httptest.NewRequest("GET", "/user/123", nil)
 	w := httptest.NewRecorder()
 
-	ctx, pspan := provider.Tracer(otelchi.TracerName).Start(context.Background(), "test")
+	ctx, pspan := provider.Tracer(tracerName).Start(context.Background(), "test")
 	b3.Inject(ctx, propagation.HeaderCarrier(r.Header))
 
 	router := chi.NewRouter()
