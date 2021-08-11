@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/felixge/httpsnoop"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
