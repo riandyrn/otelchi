@@ -71,11 +71,11 @@ func TestChildSpanAttributes(t *testing.T) {
 	}{
 		{
 			Name:              "Test First Route",
-			Request:           httptest.NewRequest(http.MethodGet, "/user/123?query=abc", nil),
-			SpanName:          "/user/{id}",
+			Request:           httptest.NewRequest(http.MethodGet, "/users/123?query=abc", nil),
+			SpanName:          "/users/{id:[0-9]+}",
 			HTTPMethod:        http.MethodGet,
-			Target:            "/user/123?query=abc",
-			Route:             "/user/{id}",
+			Target:            "/users/123?query=abc",
+			Route:             "/users/{id:[0-9]+}",
 			RespContentLength: 0,
 		},
 		{
@@ -96,7 +96,7 @@ func TestChildSpanAttributes(t *testing.T) {
 			router := chi.NewRouter()
 			router.Use(otelchi.Middleware("foobar", otelchi.WithTracerProvider(provider)))
 			router.HandleFunc(
-				"/user/{id}",
+				"/users/{id:[0-9]+}",
 				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusOK)
 				}),
