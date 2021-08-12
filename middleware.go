@@ -56,10 +56,9 @@ type traceware struct {
 }
 
 type recordingResponseWriter struct {
-	writer        http.ResponseWriter
-	written       bool
-	status        int
-	contentLength int
+	writer  http.ResponseWriter
+	written bool
+	status  int
 }
 
 var rrwPool = &sync.Pool{
@@ -79,7 +78,6 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 					rrw.written = true
 					rrw.status = http.StatusOK
 				}
-				rrw.contentLength = len(b)
 				return next(b)
 			}
 		},
@@ -120,7 +118,6 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	attrs = append(attrs, semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r2)...)
 	attrs = append(
 		attrs,
-		semconv.HTTPResponseContentLengthKey.Int(rrw.contentLength),
 		semconv.HTTPTargetKey.String(r2.URL.String()),
 	)
 	span.SetAttributes(attrs...)
