@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/oteltest"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -135,10 +134,8 @@ func (rw *testResponseWriter) ReadFrom(r io.Reader) (n int64, err error) {
 
 func TestResponseWriterInterfaces(t *testing.T) {
 	// make sure the recordingResponseWriter preserves interfaces implemented by the wrapped writer
-	provider := oteltest.NewTracerProvider()
-
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar", WithTracerProvider(provider)))
+	router.Use(Middleware("foobar"))
 	router.HandleFunc("/user/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Implements(t, (*http.Hijacker)(nil), w)
 		assert.Implements(t, (*http.Pusher)(nil), w)
