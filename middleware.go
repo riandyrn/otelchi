@@ -113,7 +113,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// in go-chi/chi, full route pattern could only be extracted once the request is executed
 	// check here for details: https://github.com/go-chi/chi/issues/150#issuecomment-278850733
-	routeStr := strings.Join(chi.RouteContext(r2.Context()).RoutePatterns, "")
+	routeStr := chi.RouteContext(r2.Context()).RoutePattern()
 	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
 	attrs = append(attrs, semconv.NetAttributesFromHTTPRequest("tcp", r2)...)
 	attrs = append(attrs, semconv.EndUserAttributesFromHTTPRequest(r2)...)
