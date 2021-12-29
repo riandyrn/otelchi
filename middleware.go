@@ -2,7 +2,6 @@ package otelchi
 
 import (
 	"net/http"
-	"strings"
 	"sync"
 
 	"github.com/felixge/httpsnoop"
