@@ -23,3 +23,5 @@ jobs:
         run: go test ./...
       - name: Build
         run: go build
+      - name: Build Example
+        run: go build -o example-build ./example
