@@ -1,4 +1,4 @@
-module github.com/tjefferson08/otelchi
+module github.com/riandyrn/otelchi
 
 go 1.15
 
