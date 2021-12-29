@@ -167,14 +167,14 @@ func TestSDKIntegration(t *testing.T) {
 	router.HandleFunc("/book/{title}", ok)
 
 	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	r1 := httptest.NewRequest("GET", "/book/foo", nil)
+	r1 := httptest.NewRequest("POST", "/book/foo", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
 	router.ServeHTTP(w, r1)
 
 	require.Len(t, sr.Ended(), 2)
 	assertSpan(t, sr.Ended()[0],
-		"/user/{id:[0-9]+}",
+		"GET /user/{id:[0-9]+}",
 		trace.SpanKindServer,
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
@@ -183,11 +183,11 @@ func TestSDKIntegration(t *testing.T) {
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
-		"/book/{title}",
+		"POST /book/{title}",
 		trace.SpanKindServer,
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
+		attribute.String("http.method", "POST"),
 		attribute.String("http.target", "/book/foo"),
 		attribute.String("http.route", "/book/{title}"),
 	)

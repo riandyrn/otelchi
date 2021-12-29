@@ -2,6 +2,7 @@ package otelchi
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/felixge/httpsnoop"
@@ -118,7 +119,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	attrs = append(attrs, semconv.EndUserAttributesFromHTTPRequest(r2)...)
 	attrs = append(attrs, semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r2)...)
 	span.SetAttributes(attrs...)
-	span.SetName(routeStr)
+	span.SetName(strings.ToUpper(r.Method) + " " + routeStr)
 
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
 	span.SetStatus(spanStatus, spanMessage)
