@@ -43,6 +43,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			tracer:      tracer,
 			propagators: cfg.Propagators,
 			handler:     handler,
+			chiRoutes:   cfg.ChiRoutes,
 		}
 	}
 }
@@ -52,6 +53,7 @@ type traceware struct {
 	tracer      oteltrace.Tracer
 	propagators propagation.TextMapPropagator
 	handler     http.Handler
+	chiRoutes   chi.Routes
 }
 
 type recordingResponseWriter struct {
@@ -101,25 +103,51 @@ func putRRW(rrw *recordingResponseWriter) {
 // ServeHTTP implements the http.Handler interface. It does the actual
 // tracing of the request.
 func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// extract tracing header using propagator
 	ctx := tw.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
-	ctx, span := tw.tracer.Start(ctx, "", oteltrace.WithSpanKind(oteltrace.SpanKindServer))
+	// create span, based on specification, we need to set already known attributes
+	// when creating the span, the only thing missing here is HTTP route pattern since
+	// in go-chi/chi route pattern could only be extracted once the request is executed
+	// check here for details:
+	//
+	// https://github.com/go-chi/chi/issues/150#issuecomment-278850733
+	//
+	// if we have access to chi routes, we could extract the route pattern beforehand.
+	routePattern := ""
+	if tw.chiRoutes != nil {
+		rctx := chi.NewRouteContext()
+		if tw.chiRoutes.Match(rctx, r.Method, r.URL.Path) {
+			routePattern = rctx.RoutePattern()
+		}
+	}
+	ctx, span := tw.tracer.Start(
+		ctx, routePattern,
+		oteltrace.WithAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...),
+		oteltrace.WithAttributes(semconv.EndUserAttributesFromHTTPRequest(r)...),
+		oteltrace.WithAttributes(semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routePattern, r)...),
+		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
+	)
 	defer span.End()
 
-	r2 := r.WithContext(ctx)
+	// get recording response writer
 	rrw := getRRW(w)
 	defer putRRW(rrw)
-	tw.handler.ServeHTTP(rrw.writer, r2)
 
-	// in go-chi/chi, full route pattern could only be extracted once the request is executed
-	// check here for details: https://github.com/go-chi/chi/issues/150#issuecomment-278850733
-	routeStr := chi.RouteContext(r2.Context()).RoutePattern()
-	attrs := semconv.HTTPAttributesFromHTTPStatusCode(rrw.status)
-	attrs = append(attrs, semconv.NetAttributesFromHTTPRequest("tcp", r2)...)
-	attrs = append(attrs, semconv.EndUserAttributesFromHTTPRequest(r2)...)
-	attrs = append(attrs, semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routeStr, r2)...)
-	span.SetAttributes(attrs...)
-	span.SetName(routeStr)
+	// execute next http handler
+	r = r.WithContext(ctx)
+	tw.handler.ServeHTTP(rrw.writer, r)
 
+	// set span name & http route attribute if necessary
+	if len(routePattern) == 0 {
+		routePattern = chi.RouteContext(r.Context()).RoutePattern()
+		span.SetAttributes(semconv.HTTPRouteKey.String(routePattern))
+		span.SetName(routePattern)
+	}
+
+	// set status code attribute
+	span.SetAttributes(semconv.HTTPStatusCodeKey.Int(rrw.status))
+
+	// set span status
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
 	span.SetStatus(spanStatus, spanMessage)
 }
