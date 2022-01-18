@@ -37,7 +37,7 @@ func main() {
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware("my-server"))
+	r.Use(otelchi.Middleware("my-server", otelchi.WithChiRoutes(r)))
 	r.HandleFunc("/users/{id:[0-9]+}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 		name := getUser(r.Context(), id)
