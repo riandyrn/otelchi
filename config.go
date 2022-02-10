@@ -8,9 +8,10 @@ import (
 
 // config is used to configure the mux middleware.
 type config struct {
-	TracerProvider oteltrace.TracerProvider
-	Propagators    propagation.TextMapPropagator
-	ChiRoutes      chi.Routes
+	TracerProvider          oteltrace.TracerProvider
+	Propagators             propagation.TextMapPropagator
+	ChiRoutes               chi.Routes
+	RequestMethodInSpanName bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -46,5 +47,20 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 func WithChiRoutes(routes chi.Routes) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.ChiRoutes = routes
+	})
+}
+
+// WithRequestMethodInSpanName is used for adding http request method to span name.
+// While this is not necessary for vendors that properly implemented the tracing
+// specs (e.g Jaeger, AWS X-Ray, etc...), but for other vendors such as Elastic
+// and New Relic this might be helpful.
+//
+// See following threads for details:
+//
+// - https://github.com/riandyrn/otelchi/pull/3#issuecomment-1005883910
+// - https://github.com/riandyrn/otelchi/issues/6#issuecomment-1034461912
+func WithRequestMethodInSpanName(isActive bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.RequestMethodInSpanName = isActive
 	})
 }
