@@ -39,21 +39,23 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	}
 	return func(handler http.Handler) http.Handler {
 		return traceware{
-			serverName:  serverName,
-			tracer:      tracer,
-			propagators: cfg.Propagators,
-			handler:     handler,
-			chiRoutes:   cfg.ChiRoutes,
+			serverName:          serverName,
+			tracer:              tracer,
+			propagators:         cfg.Propagators,
+			handler:             handler,
+			chiRoutes:           cfg.ChiRoutes,
+			reqMethodInSpanName: cfg.RequestMethodInSpanName,
 		}
 	}
 }
 
 type traceware struct {
-	serverName  string
-	tracer      oteltrace.Tracer
-	propagators propagation.TextMapPropagator
-	handler     http.Handler
-	chiRoutes   chi.Routes
+	serverName          string
+	tracer              oteltrace.Tracer
+	propagators         propagation.TextMapPropagator
+	handler             http.Handler
+	chiRoutes           chi.Routes
+	reqMethodInSpanName bool
 }
 
 type recordingResponseWriter struct {
@@ -113,15 +115,17 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// https://github.com/go-chi/chi/issues/150#issuecomment-278850733
 	//
 	// if we have access to chi routes, we could extract the route pattern beforehand.
+	spanName := ""
 	routePattern := ""
 	if tw.chiRoutes != nil {
 		rctx := chi.NewRouteContext()
 		if tw.chiRoutes.Match(rctx, r.Method, r.URL.Path) {
 			routePattern = rctx.RoutePattern()
+			spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
 		}
 	}
 	ctx, span := tw.tracer.Start(
-		ctx, routePattern,
+		ctx, spanName,
 		oteltrace.WithAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...),
 		oteltrace.WithAttributes(semconv.EndUserAttributesFromHTTPRequest(r)...),
 		oteltrace.WithAttributes(semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routePattern, r)...),
@@ -141,7 +145,9 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(routePattern) == 0 {
 		routePattern = chi.RouteContext(r.Context()).RoutePattern()
 		span.SetAttributes(semconv.HTTPRouteKey.String(routePattern))
-		span.SetName(routePattern)
+
+		spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
+		span.SetName(spanName)
 	}
 
 	// set status code attribute
@@ -150,4 +156,11 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// set span status
 	spanStatus, spanMessage := semconv.SpanStatusFromHTTPStatusCode(rrw.status)
 	span.SetStatus(spanStatus, spanMessage)
+}
+
+func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
+	if shouldAdd && len(spanName) > 0 {
+		spanName = prefix + " " + spanName
+	}
+	return spanName
 }

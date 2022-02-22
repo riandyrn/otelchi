@@ -236,6 +236,96 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 	)
 }
 
+func TestSDKIntegrationOverrideSpanName(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider()
+	provider.RegisterSpanProcessor(sr)
+
+	router := chi.NewRouter()
+	router.Use(
+		Middleware(
+			"foobar",
+			WithTracerProvider(provider),
+			WithChiRoutes(router),
+		),
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) {
+		span := trace.SpanFromContext(r.Context())
+		span.SetName("overriden span name")
+		w.WriteHeader(http.StatusOK)
+	})
+	router.HandleFunc("/book/{title}", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r1 := httptest.NewRequest("GET", "/book/foo", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+	router.ServeHTTP(w, r1)
+
+	require.Len(t, sr.Ended(), 2)
+	assertSpan(t, sr.Ended()[0],
+		"overriden span name",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/user/123"),
+		attribute.String("http.route", "/user/{id:[0-9]+}"),
+	)
+	assertSpan(t, sr.Ended()[1],
+		"/book/{title}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/book/foo"),
+		attribute.String("http.route", "/book/{title}"),
+	)
+}
+
+func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider()
+	provider.RegisterSpanProcessor(sr)
+
+	router := chi.NewRouter()
+	router.Use(
+		Middleware(
+			"foobar",
+			WithTracerProvider(provider),
+			WithRequestMethodInSpanName(true),
+		),
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+	router.HandleFunc("/book/{title}", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r1 := httptest.NewRequest("GET", "/book/foo", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+	router.ServeHTTP(w, r1)
+
+	require.Len(t, sr.Ended(), 2)
+	assertSpan(t, sr.Ended()[0],
+		"GET /user/{id:[0-9]+}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/user/123"),
+		attribute.String("http.route", "/user/{id:[0-9]+}"),
+	)
+	assertSpan(t, sr.Ended()[1],
+		"GET /book/{title}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/book/foo"),
+		attribute.String("http.route", "/book/{title}"),
+	)
+}
+
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, trace.SpanKindServer, span.SpanKind())
