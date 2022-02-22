@@ -43,7 +43,11 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 }
 
 // WithChiRoutes specified the routes that being used by application. Its main
-// purpose is to provide route pattern on span creation.
+// purpose is to provide route pattern as span name during span creation. If this
+// option is not set, by default the span will be given name at the end of span
+// execution. For some people, this behavior is not desirable since they want
+// to override the span name on underlying handler. By setting this option, it
+// is possible for them to override the span name.
 func WithChiRoutes(routes chi.Routes) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.ChiRoutes = routes
