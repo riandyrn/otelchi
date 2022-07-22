@@ -1,0 +1,16 @@
+version: '2.4'
+services:
+  front-svc:
+    build:
+      dockerfile: ./front-svc/Dockerfile
+      context: .
+    environment:
+      - BACK_SERVICE_URL=http://back-svc:8091
+    ports:
+      - 8090:8090
+  back-svc:
+    build:
+      dockerfile: ./back-svc/Dockerfile
+      context: .
+    ports:
+      - 8091:8091
