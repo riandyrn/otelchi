@@ -6,6 +6,7 @@ services:
       context: .
     environment:
       - BACK_SERVICE_URL=http://back-svc:8091
+      - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
     ports:
       - 8090:8090
   back-svc:
@@ -14,3 +15,9 @@ services:
       context: .
     ports:
       - 8091:8091
+  jaeger:
+    image: jaegertracing/all-in-one:1.36
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16686:16686 # for serving jaeger front-end
