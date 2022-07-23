@@ -10,14 +10,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
+	"github.com/riandyrn/otelchi/examples/multi-services/utils"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
-	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/exporters/jaeger"
-	"go.opentelemetry.io/otel/propagation"
-	"go.opentelemetry.io/otel/sdk/resource"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -25,21 +20,18 @@ const (
 	envKeyBackServiceURL    = "BACK_SERVICE_URL"
 	envKeyJaegerEndpointURL = "JAEGER_ENDPOINT_URL"
 	addr                    = ":8090"
+	serviceName             = "front-svc"
 )
 
 func main() {
-	// init tracer provider
-	tp, err := initTracerProvider("front-svc", os.Getenv(envKeyJaegerEndpointURL))
+	// initialize tracer
+	tracer, err := utils.NewTracer(serviceName, os.Getenv(envKeyJaegerEndpointURL))
 	if err != nil {
-		log.Fatalf("unable to initialize tracer provider due: %v", err)
+		log.Fatalf("unable to initialize tracer due: %v", err)
 	}
-	// set global tracer provider & text propagators
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
-	tracer := otel.Tracer("")
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware("front-svc", otelchi.WithChiRoutes(r)))
+	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		name, err := getRandomName(r.Context(), tracer)
 		if err != nil {
@@ -79,22 +71,4 @@ func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
 	}
 
 	return string(data), nil
-}
-
-func initTracerProvider(svcName, jaegerEndpoint string) (*sdktrace.TracerProvider, error) {
-	// create jaeger exporter
-	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerEndpoint)))
-	if err != nil {
-		return nil, fmt.Errorf("unable to initialize exporter due: %w", err)
-	}
-	// initialize tracer provider
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(resource.NewWithAttributes(
-			semconv.SchemaURL,
-			semconv.ServiceNameKey.String(svcName),
-		)),
-	)
-	return tp, nil
 }

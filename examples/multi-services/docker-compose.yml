@@ -13,6 +13,8 @@ services:
     build:
       dockerfile: ./back-svc/Dockerfile
       context: .
+    environment:
+      - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
     ports:
       - 8091:8091
   jaeger:
