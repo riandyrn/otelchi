@@ -1,0 +1,43 @@
+version: '2.4'
+services:
+  client:
+    image: curlimages/curl:7.84.0
+    command: "curl -XGET http://front-svc:8090/greet"
+    depends_on:
+      front-svc:
+        condition: service_healthy
+      back-svc:
+        condition: service_healthy
+      jaeger:
+        condition: service_started
+  front-svc:
+    build:
+      dockerfile: ./front-svc/Dockerfile
+      context: .
+    healthcheck:
+      test: "curl -XGET http://localhost:8090"
+      start_period: 5s
+    environment:
+      - BACK_SERVICE_URL=http://back-svc:8091
+      - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
+    ports:
+      - 8090:8090
+  back-svc:
+    build:
+      dockerfile: ./back-svc/Dockerfile
+      context: .
+    healthcheck:
+      test: "curl -XGET http://localhost:8091"
+      start_period: 5s
+    environment:
+      - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
+    ports:
+      - 8091:8091
+  jaeger:
+    image: jaegertracing/all-in-one:1.36
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16686:16686 # for serving jaeger front-end
+    logging:
+      driver: none # intentionally turnoff the logging so it doesn't clutter the terminal

@@ -23,5 +23,11 @@ jobs:
         run: go test ./...
       - name: Build
         run: go build
-      - name: Build Example
-        run: go build -o example-build ./example
+      - name: Build Examples
+        run: |
+          # build basic example
+          docker build -f ./examples/basic/Dockerfile .
+
+          # build multi services example
+          docker build -f ./examples/multi-services/back-svc/Dockerfile ./examples/multi-services
+          docker build -f ./examples/multi-services/front-svc/Dockerfile ./examples/multi-services
