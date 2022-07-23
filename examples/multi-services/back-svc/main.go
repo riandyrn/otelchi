@@ -30,7 +30,8 @@ func main() {
 	// define router
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/", utils.HealthCheckHandler)
+	r.Get("/name", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(generateName(r.Context(), tracer)))
 	})
 	log.Printf("back service is listening on %v", addr)

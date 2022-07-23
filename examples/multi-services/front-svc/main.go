@@ -32,7 +32,8 @@ func main() {
 	// define router
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/", utils.HealthCheckHandler)
+	r.Get("/greet", func(w http.ResponseWriter, r *http.Request) {
 		name, err := getRandomName(r.Context(), tracer)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -50,10 +51,13 @@ func main() {
 }
 
 func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
+	// start span
 	ctx, span := tracer.Start(ctx, "getRandomName")
 	defer span.End()
 
-	resp, err := otelhttp.Get(ctx, os.Getenv(envKeyBackServiceURL))
+	// call back service, notice that here we call the service using instrumented
+	// http client
+	resp, err := otelhttp.Get(ctx, os.Getenv(envKeyBackServiceURL)+"/name")
 	if err != nil {
 		err = fmt.Errorf("unable to execute http request due: %w", err)
 		span.RecordError(err)
@@ -62,6 +66,7 @@ func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
 	}
 	defer resp.Body.Close()
 
+	// read response body
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("unable to read response data due: %w", err)
