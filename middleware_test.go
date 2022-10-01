@@ -193,6 +193,54 @@ func TestSDKIntegration(t *testing.T) {
 	)
 }
 
+func TestSDKIntegrationWithFilters(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider()
+	provider.RegisterSpanProcessor(sr)
+
+	router := chi.NewRouter()
+	router.Use(Middleware("foobar", WithTracerProvider(provider), WithFilter(func(r *http.Request) bool {
+		if r.URL.Path == "/live" || r.URL.Path == "/ready" {
+			return false
+		}
+		return true
+	})))
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+	router.HandleFunc("/book/{title}", ok)
+	router.HandleFunc("/health", ok)
+	router.HandleFunc("/ready", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r1 := httptest.NewRequest("GET", "/book/foo", nil)
+	r2 := httptest.NewRequest("GET", "/live", nil)
+	r3 := httptest.NewRequest("GET", "/ready", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+	router.ServeHTTP(w, r1)
+	router.ServeHTTP(w, r2)
+	router.ServeHTTP(w, r3)
+
+	require.Len(t, sr.Ended(), 2)
+	assertSpan(t, sr.Ended()[0],
+		"/user/{id:[0-9]+}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/user/123"),
+		attribute.String("http.route", "/user/{id:[0-9]+}"),
+	)
+	assertSpan(t, sr.Ended()[1],
+		"/book/{title}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/book/foo"),
+		attribute.String("http.route", "/book/{title}"),
+	)
+}
+
 func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 	sr := tracetest.NewSpanRecorder()
 	provider := sdktrace.NewTracerProvider()
