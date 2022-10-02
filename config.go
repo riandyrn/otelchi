@@ -1,6 +1,8 @@
 package otelchi
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -12,6 +14,7 @@ type config struct {
 	Propagators             propagation.TextMapPropagator
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
+	Filter                  func(r *http.Request) bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -66,5 +69,14 @@ func WithChiRoutes(routes chi.Routes) Option {
 func WithRequestMethodInSpanName(isActive bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.RequestMethodInSpanName = isActive
+	})
+}
+
+// WithFilter is used for filtering request that should not be traced.
+// This is useful for filtering health check request, etc.
+// A Filter must return true if the request should be traced.
+func WithFilter(filter func(r *http.Request) bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.Filter = filter
 	})
 }
