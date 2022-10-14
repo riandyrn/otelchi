@@ -13,6 +13,10 @@ import (
 	otelcontrib "go.opentelemetry.io/contrib"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
+
+	"fmt"
+	"reflect"
+	"runtime"
 )
 
 const (
@@ -46,6 +50,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			chiRoutes:           cfg.ChiRoutes,
 			reqMethodInSpanName: cfg.RequestMethodInSpanName,
 			filter:              cfg.Filter,
+			recordStackTrace:    cfg.RecordStackTrace,
 		}
 	}
 }
@@ -58,6 +63,7 @@ type traceware struct {
 	chiRoutes           chi.Routes
 	reqMethodInSpanName bool
 	filter              func(r *http.Request) bool
+	recordStackTrace    bool
 }
 
 type recordingResponseWriter struct {
@@ -139,7 +145,30 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		oteltrace.WithAttributes(semconv.HTTPServerAttributesFromHTTPRequest(tw.serverName, routePattern, r)...),
 		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
 	)
-	defer span.End()
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			defer panic(recovered)
+
+			span.SetStatus(semconv.SpanStatusFromHTTPStatusCode(http.StatusInternalServerError))
+
+			opts := []oteltrace.EventOption{
+				oteltrace.WithAttributes(
+					semconv.ExceptionTypeKey.String(typeStr(recovered)),
+					semconv.ExceptionMessageKey.String(fmt.Sprint(recovered)),
+				),
+			}
+
+			if tw.recordStackTrace {
+				opts = append(opts, oteltrace.WithAttributes(
+					semconv.ExceptionStacktraceKey.String(recordStackTrace()),
+				))
+			}
+
+			span.AddEvent(semconv.ExceptionEventName, opts...)
+		}
+
+		span.End()
+	}()
 
 	// get recording response writer
 	rrw := getRRW(w)
@@ -171,4 +200,20 @@ func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
 		spanName = prefix + " " + spanName
 	}
 	return spanName
+}
+
+func typeStr(i interface{}) string {
+	t := reflect.TypeOf(i)
+	if t.PkgPath() == "" && t.Name() == "" {
+		// Likely a builtin type.
+		return t.String()
+	}
+	return fmt.Sprintf("%s.%s", t.PkgPath(), t.Name())
+}
+
+func recordStackTrace() string {
+	stackTrace := make([]byte, 2048)
+	n := runtime.Stack(stackTrace, false)
+
+	return string(stackTrace[0:n])
 }

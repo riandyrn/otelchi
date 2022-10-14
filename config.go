@@ -15,6 +15,7 @@ type config struct {
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
 	Filter                  func(r *http.Request) bool
+	RecordStackTrace        bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -78,5 +79,12 @@ func WithRequestMethodInSpanName(isActive bool) Option {
 func WithFilter(filter func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.Filter = filter
+	})
+}
+
+// WithStackTrace is used for recording stack trace when span is ended with a panic
+func WithStackTrace(isActive bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.RecordStackTrace = isActive
 	})
 }
