@@ -1,9 +1,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -31,16 +30,25 @@ func main() {
 	}
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(
+		otelchi.Middleware(
+			serviceName,
+			otelchi.WithChiRoutes(r),
+			otelchi.WithFilter(func(r *http.Request) bool {
+				// ignore path "/"
+				return r.URL.Path != "/"
+			}),
+		),
+	)
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/greet", func(w http.ResponseWriter, r *http.Request) {
-		name, err := getRandomName(r.Context(), tracer)
+		name, err := getName(r, tracer)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte(err.Error()))
 			return
 		}
-		w.Write([]byte(fmt.Sprintf("Hello, %s!", name)))
+		w.Write([]byte(generateGreeting(r, tracer, name)))
 	})
 	// execute server
 	log.Printf("front service is listening on %v", addr)
@@ -50,14 +58,19 @@ func main() {
 	}
 }
 
-func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
+func getName(r *http.Request, tracer trace.Tracer) (string, error) {
 	// start span
-	ctx, span := tracer.Start(ctx, "getRandomName")
+	ctx, span := tracer.Start(r.Context(), "getName")
 	defer span.End()
 
-	// call back service, notice that here we call the service using instrumented
-	// http client
-	resp, err := otelhttp.Get(ctx, os.Getenv(envKeyBackServiceURL)+"/name")
+	// call back service, please note here we call the service using
+	// instrumented http client
+	ul := fmt.Sprintf(
+		"%v/name?name=%v",
+		os.Getenv(envKeyBackServiceURL),
+		r.URL.Query().Get("name"),
+	)
+	resp, err := otelhttp.Get(ctx, ul)
 	if err != nil {
 		err = fmt.Errorf("unable to execute http request due: %w", err)
 		span.RecordError(err)
@@ -67,7 +80,7 @@ func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
 	defer resp.Body.Close()
 
 	// read response body
-	data, err := ioutil.ReadAll(resp.Body)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("unable to read response data due: %w", err)
 		span.RecordError(err)
@@ -76,4 +89,19 @@ func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
 	}
 
 	return string(data), nil
+}
+
+func generateGreeting(r *http.Request, tracer trace.Tracer, name string) string {
+	// start span
+	_, span := tracer.Start(r.Context(), "generateGreeting")
+	defer span.End()
+
+	// generate greeting
+	lang := r.URL.Query().Get("lang")
+	switch lang {
+	case "id":
+		return fmt.Sprintf("Halo, %v! Kamu memilih bahasa: %v.", name, lang)
+	default:
+		return fmt.Sprintf("Hello, %v! You are choosing language: %v.", name, lang)
+	}
 }

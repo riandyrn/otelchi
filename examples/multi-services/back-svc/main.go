@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -32,7 +31,7 @@ func main() {
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/name", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(generateName(r.Context(), tracer)))
+		w.Write([]byte(generateName(r, tracer)))
 	})
 	log.Printf("back service is listening on %v", addr)
 	err = http.ListenAndServe(addr, r)
@@ -41,10 +40,15 @@ func main() {
 	}
 }
 
-func generateName(ctx context.Context, tracer trace.Tracer) string {
-	_, span := tracer.Start(ctx, "generateName")
+func generateName(r *http.Request, tracer trace.Tracer) string {
+	_, span := tracer.Start(r.Context(), "generateName")
 	defer span.End()
 
-	rndNum := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(100000)
-	return fmt.Sprintf("user_%v", rndNum)
+	name := r.URL.Query().Get("name")
+	if len(name) == 0 {
+		rndNum := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(100000)
+		name = fmt.Sprintf("user_%v", rndNum)
+	}
+
+	return name
 }

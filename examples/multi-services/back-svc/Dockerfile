@@ -1,4 +1,4 @@
-FROM golang:1.15.6-alpine3.12
+FROM golang:1.19.3-alpine3.16
 WORKDIR /go/src/github.com/riandyrn/otelchi/examples/multi-services
 
 RUN apk --no-cache add curl

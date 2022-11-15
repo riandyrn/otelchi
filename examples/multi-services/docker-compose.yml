@@ -2,7 +2,7 @@ version: '2.4'
 services:
   client:
     image: curlimages/curl:7.84.0
-    command: "curl -XGET http://front-svc:8090/greet"
+    command: "curl -XGET http://front-svc:8090/greet?name=Riandy&lang=en"
     depends_on:
       front-svc:
         condition: service_healthy
