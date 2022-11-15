@@ -40,7 +40,7 @@ func TestPassthroughSpanFromGlobalTracer(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	r := httptest.NewRequest("GET", "/user/123", nil)
+	r := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r = r.WithContext(trace.ContextWithRemoteSpanContext(context.Background(), sc))
 	w := httptest.NewRecorder()
 
@@ -56,7 +56,7 @@ func TestPropagationWithGlobalPropagators(t *testing.T) {
 	prop := propagation.TraceContext{}
 	otel.SetTextMapPropagator(prop)
 
-	r := httptest.NewRequest("GET", "/user/123", nil)
+	r := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	w := httptest.NewRecorder()
 
 	ctx := trace.ContextWithRemoteSpanContext(context.Background(), sc)
@@ -79,7 +79,7 @@ func TestPropagationWithGlobalPropagators(t *testing.T) {
 func TestPropagationWithCustomPropagators(t *testing.T) {
 	prop := propagation.TraceContext{}
 
-	r := httptest.NewRequest("GET", "/user/123", nil)
+	r := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	w := httptest.NewRecorder()
 
 	ctx := trace.ContextWithRemoteSpanContext(context.Background(), sc)
@@ -144,7 +144,7 @@ func TestResponseWriterInterfaces(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	r := httptest.NewRequest("GET", "/user/123", nil)
+	r := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	w := &testResponseWriter{
 		writer: httptest.NewRecorder(),
 	}
@@ -166,7 +166,7 @@ func TestSDKIntegration(t *testing.T) {
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r0 := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r1 := httptest.NewRequest("GET", "/book/foo", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
@@ -179,7 +179,7 @@ func TestSDKIntegration(t *testing.T) {
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
+		attribute.String("http.target", "/user/123?q=test&page=1"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
@@ -210,7 +210,7 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 	router.HandleFunc("/health", ok)
 	router.HandleFunc("/ready", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r0 := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r1 := httptest.NewRequest("GET", "/book/foo", nil)
 	r2 := httptest.NewRequest("GET", "/live", nil)
 	r3 := httptest.NewRequest("GET", "/ready", nil)
@@ -227,7 +227,7 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
+		attribute.String("http.target", "/user/123?q=test&page=1"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
@@ -257,7 +257,7 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r0 := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r1 := httptest.NewRequest("GET", "/book/foo", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
@@ -270,7 +270,7 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
+		attribute.String("http.target", "/user/123?q=test&page=1"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
@@ -304,7 +304,7 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 	})
 	router.HandleFunc("/book/{title}", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r0 := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r1 := httptest.NewRequest("GET", "/book/foo", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
@@ -317,7 +317,7 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
+		attribute.String("http.target", "/user/123?q=test&page=1"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
@@ -347,7 +347,7 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	r0 := httptest.NewRequest("GET", "/user/123?q=test&page=1", nil)
 	r1 := httptest.NewRequest("GET", "/book/foo", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
@@ -360,7 +360,7 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 		attribute.String("http.server_name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
+		attribute.String("http.target", "/user/123?q=test&page=1"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
 	assertSpan(t, sr.Ended()[1],
