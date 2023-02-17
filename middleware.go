@@ -132,6 +132,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
 		}
 	}
+
 	ctx, span := tw.tracer.Start(
 		ctx, spanName,
 		oteltrace.WithAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...),
@@ -167,6 +168,12 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
+	// in chi v5.0.8, the root route will be returned has an empty string
+	// (see github.com/go-chi/chi/v5@v5.0.8/context.go:126)
+	if spanName == "" {
+		spanName = "/"
+	}
+
 	if shouldAdd && len(spanName) > 0 {
 		spanName = prefix + " " + spanName
 	}
