@@ -15,7 +15,7 @@ Contributions are welcomed!
 ## Install
 
 ```bash
-$ go get github.com/riandyrn/otelchi
+$ go get github.com/middleware-labs/golang-apm-go-chi
 ```
 
 ## Examples
