@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	tracerName = "github.com/riandyrn/otelchi"
+	tracerName = "github.com/middleware-labs/golang-apm-go-chi"
 )
 
 // Middleware sets up a handler to start tracing the incoming
