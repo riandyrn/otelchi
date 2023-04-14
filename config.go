@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -17,6 +18,7 @@ const (
 // config is used to configure the mux middleware.
 type config struct {
 	TracerProvider                oteltrace.TracerProvider
+	MeterProvider                 otelmetric.MeterProvider
 	Propagators                   propagation.TextMapPropagator
 	ChiRoutes                     chi.Routes
 	RequestMethodInSpanName       bool
@@ -24,6 +26,9 @@ type config struct {
 	TraceIDResponseHeaderKey      string
 	TraceSampledResponseHeaderKey string
 	PublicEndpointFn              func(r *http.Request) bool
+
+	DisableMeasureInflight bool
+	DisableMeasureSize     bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -55,6 +60,30 @@ func WithPropagators(propagators propagation.TextMapPropagator) Option {
 func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.TracerProvider = provider
+	})
+}
+
+// WithMeterProvider specifies a meter provider to use for creating a meter.
+// If none is specified, the global provider is used.
+func WithMeterProvider(provider otelmetric.MeterProvider) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.MeterProvider = provider
+	})
+}
+
+// WithMeasureInflightDisabled specifies whether to measure the number of inflight requests.
+// If this option is not set, the number of inflight requests will be measured.
+func WithMeasureInflightDisabled(isDisabled bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.DisableMeasureInflight = isDisabled
+	})
+}
+
+// WithMeasureSizeDisabled specifies whether to measure the size of the response body.
+// If this option is not set, the size of the response body will be measured.
+func WithMeasureSizeDisabled(isDisabled bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.DisableMeasureSize = isDisabled
 	})
 }
 

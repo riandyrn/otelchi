@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
+	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 	oteltrace "go.opentelemetry.io/otel/trace"
@@ -28,6 +30,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
+
 	if cfg.TracerProvider == nil {
 		cfg.TracerProvider = otel.GetTracerProvider()
 	}
@@ -35,14 +38,25 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 		tracerName,
 		oteltrace.WithInstrumentationVersion(Version()),
 	)
+
+	if cfg.MeterProvider == nil {
+		cfg.MeterProvider = otel.GetMeterProvider()
+	}
+	meter := cfg.MeterProvider.Meter(
+		tracerName,
+		otelmetric.WithInstrumentationVersion(Version()),
+	)
+
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
 	}
 
 	return func(handler http.Handler) http.Handler {
-		return traceware{
+		return &otelware{
 			serverName:                    serverName,
 			tracer:                        tracer,
+			meter:                         meter,
+			recorder:                      newMetricsRecorder(meter),
 			propagators:                   cfg.Propagators,
 			handler:                       handler,
 			chiRoutes:                     cfg.ChiRoutes,
@@ -51,13 +65,17 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			traceIDResponseHeaderKey:      cfg.TraceIDResponseHeaderKey,
 			traceSampledResponseHeaderKey: cfg.TraceSampledResponseHeaderKey,
 			publicEndpointFn:              cfg.PublicEndpointFn,
+			disableMeasureInflight:        cfg.DisableMeasureInflight,
+			disableMeasureSize:            cfg.DisableMeasureSize,
 		}
 	}
 }
 
-type traceware struct {
+type otelware struct {
 	serverName                    string
 	tracer                        oteltrace.Tracer
+	meter                         otelmetric.Meter
+	recorder                      *metricsRecorder
 	propagators                   propagation.TextMapPropagator
 	handler                       http.Handler
 	chiRoutes                     chi.Routes
@@ -66,12 +84,16 @@ type traceware struct {
 	traceIDResponseHeaderKey      string
 	traceSampledResponseHeaderKey string
 	publicEndpointFn              func(r *http.Request) bool
+
+	disableMeasureInflight bool
+	disableMeasureSize     bool
 }
 
 type recordingResponseWriter struct {
-	writer  http.ResponseWriter
-	written bool
-	status  int
+	writer       http.ResponseWriter
+	written      bool
+	writtenBytes int64
+	status       int
 }
 
 var rrwPool = &sync.Pool{
@@ -83,12 +105,14 @@ var rrwPool = &sync.Pool{
 func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 	rrw := rrwPool.Get().(*recordingResponseWriter)
 	rrw.written = false
+	rrw.writtenBytes = 0
 	rrw.status = http.StatusOK
 	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
 		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
 			return func(b []byte) (int, error) {
 				if !rrw.written {
 					rrw.written = true
+					rrw.writtenBytes += int64(len(b))
 				}
 				return next(b)
 			}
@@ -113,19 +137,19 @@ func putRRW(rrw *recordingResponseWriter) {
 
 // ServeHTTP implements the http.Handler interface. It does the actual
 // tracing of the request.
-func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (ow *otelware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// go through all filters if any
-	for _, filter := range tw.filters {
+	for _, filter := range ow.filters {
 		// if there is a filter that returns false, we skip tracing
 		// and execute next handler
 		if !filter(r) {
-			tw.handler.ServeHTTP(w, r)
+			ow.handler.ServeHTTP(w, r)
 			return
 		}
 	}
 
 	// extract tracing header using propagator
-	ctx := tw.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+	ctx := ow.propagators.Extract(r.Context(), propagation.HeaderCarrier(r.Header))
 	// create span, based on specification, we need to set already known attributes
 	// when creating the span, the only thing missing here is HTTP route pattern since
 	// in go-chi/chi route pattern could only be extracted once the request is executed
@@ -136,13 +160,13 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// if we have access to chi routes, we could extract the route pattern beforehand.
 	spanName := ""
 	routePattern := ""
-	spanAttributes := httpconv.ServerRequest(tw.serverName, r)
+	spanAttributes := httpconv.ServerRequest(ow.serverName, r)
 
-	if tw.chiRoutes != nil {
+	if ow.chiRoutes != nil {
 		rctx := chi.NewRouteContext()
-		if tw.chiRoutes.Match(rctx, r.Method, r.URL.Path) {
+		if ow.chiRoutes.Match(rctx, r.Method, r.URL.Path) {
 			routePattern = rctx.RoutePattern()
-			spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
+			spanName = addPrefixToSpanName(ow.reqMethodInSpanName, r.Method, routePattern)
 			spanAttributes = append(spanAttributes, semconv.HTTPRoute(routePattern))
 		}
 	}
@@ -153,7 +177,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
 	}
 
-	if tw.publicEndpointFn != nil && tw.publicEndpointFn(r) {
+	if ow.publicEndpointFn != nil && ow.publicEndpointFn(r) {
 		// mark span as the root span
 		spanOpts = append(spanOpts, oteltrace.WithNewRoot())
 
@@ -174,14 +198,28 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	props := httpReqProperties{
+		Service: ow.serverName,
+		ID:      routePattern,
+		Method:  r.Method,
+	}
+	if routePattern == "" {
+		props.ID = r.URL.Path
+	}
+
+	if !ow.disableMeasureInflight {
+		ow.recorder.RecordRequestsInflight(ctx, props, 1)
+		defer ow.recorder.RecordRequestsInflight(ctx, props, -1)
+	}
+
 	// start span
-	ctx, span := tw.tracer.Start(ctx, spanName, spanOpts...)
+	ctx, span := ow.tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
 
 	// put trace_id to response header only when `WithTraceIDResponseHeader` is used
-	if len(tw.traceIDResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
-		w.Header().Add(tw.traceIDResponseHeaderKey, span.SpanContext().TraceID().String())
-		w.Header().Add(tw.traceSampledResponseHeaderKey, strconv.FormatBool(span.SpanContext().IsSampled()))
+	if len(ow.traceIDResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
+		w.Header().Add(ow.traceIDResponseHeaderKey, span.SpanContext().TraceID().String())
+		w.Header().Add(ow.traceSampledResponseHeaderKey, strconv.FormatBool(span.SpanContext().IsSampled()))
 	}
 
 	// get recording response writer
@@ -190,7 +228,16 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// execute next http handler
 	r = r.WithContext(ctx)
-	tw.handler.ServeHTTP(rrw.writer, r)
+	start := time.Now()
+	ow.handler.ServeHTTP(rrw.writer, r)
+	duration := time.Since(start)
+
+	props.Code = rrw.status
+	ow.recorder.RecordRequestDuration(ctx, props, duration)
+
+	if !ow.disableMeasureSize {
+		ow.recorder.RecordResponseSize(ctx, props, rrw.writtenBytes)
+	}
 
 	// set span name & http route attribute if route pattern cannot be determined
 	// during span creation
@@ -198,7 +245,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		routePattern = chi.RouteContext(r.Context()).RoutePattern()
 		span.SetAttributes(semconv.HTTPRoute(routePattern))
 
-		spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
+		spanName = addPrefixToSpanName(ow.reqMethodInSpanName, r.Method, routePattern)
 		span.SetName(spanName)
 	}
 
