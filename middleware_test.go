@@ -182,6 +182,7 @@ func TestSDKIntegration(t *testing.T) {
 		attribute.String("http.target", "/user/123"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
+	require.Equal(t, w.Header().Get("X-Trace-ID"), sr.Ended()[0].SpanContext().TraceID().String())
 	assertSpan(t, sr.Ended()[1],
 		"/book/{title}",
 		trace.SpanKindServer,
@@ -191,6 +192,40 @@ func TestSDKIntegration(t *testing.T) {
 		attribute.String("http.target", "/book/foo"),
 		attribute.String("http.route", "/book/{title}"),
 	)
+	require.Equal(t, w.Header().Get("X-Trace-ID"), sr.Ended()[0].SpanContext().TraceID().String())
+}
+
+func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider()
+	provider.RegisterSpanProcessor(sr)
+
+	customeHeaderKey := "X-Custom-Trace-ID"
+
+	router := chi.NewRouter()
+	router.Use(Middleware(
+		"foobar",
+		WithTracerProvider(provider),
+		WithTraceResponseHeaderKey(customeHeaderKey),
+	))
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+	router.HandleFunc("/book/{title}", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+
+	require.Len(t, sr.Ended(), 1)
+	assertSpan(t, sr.Ended()[0],
+		"/user/{id:[0-9]+}",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/user/123"),
+		attribute.String("http.route", "/user/{id:[0-9]+}"),
+	)
+	require.Equal(t, w.Header().Get(customeHeaderKey), sr.Ended()[0].SpanContext().TraceID().String())
 }
 
 func TestSDKIntegrationWithFilters(t *testing.T) {
