@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	otelmetric "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
@@ -11,10 +12,14 @@ import (
 // config is used to configure the mux middleware.
 type config struct {
 	TracerProvider          oteltrace.TracerProvider
+	MeterProvider           otelmetric.MeterProvider
 	Propagators             propagation.TextMapPropagator
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
 	Filter                  func(r *http.Request) bool
+
+	DisableMeasureInflight bool
+	DisableMeasureSize     bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -42,6 +47,24 @@ func WithPropagators(propagators propagation.TextMapPropagator) Option {
 func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.TracerProvider = provider
+	})
+}
+
+func WithMeterProvider(provider otelmetric.MeterProvider) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.MeterProvider = provider
+	})
+}
+
+func WithMeasureInflight(isDisabled bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.DisableMeasureInflight = isDisabled
+	})
+}
+
+func WithMeasureSize(isDisabled bool) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.DisableMeasureSize = isDisabled
 	})
 }
 
