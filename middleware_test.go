@@ -30,7 +30,7 @@ var sc = trace.NewSpanContext(trace.SpanContextConfig{
 func TestPassthroughSpanFromGlobalTracer(t *testing.T) {
 	var called bool
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar"))
+	router.Use(Middleware("example.com"))
 	// The default global TracerProvider provides "pass through" spans for any
 	// span context in the incoming request context.
 	router.HandleFunc("/user/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +64,7 @@ func TestPropagationWithGlobalPropagators(t *testing.T) {
 
 	var called bool
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar"))
+	router.Use(Middleware("example.com"))
 	router.HandleFunc("/user/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		span := trace.SpanFromContext(r.Context())
@@ -87,7 +87,7 @@ func TestPropagationWithCustomPropagators(t *testing.T) {
 
 	var called bool
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar", WithPropagators(prop)))
+	router.Use(Middleware("example.com", WithPropagators(prop)))
 	router.HandleFunc("/user/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		span := trace.SpanFromContext(r.Context())
@@ -135,7 +135,7 @@ func (rw *testResponseWriter) ReadFrom(r io.Reader) (n int64, err error) {
 func TestResponseWriterInterfaces(t *testing.T) {
 	// make sure the recordingResponseWriter preserves interfaces implemented by the wrapped writer
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar"))
+	router.Use(Middleware("example.com"))
 	router.HandleFunc("/user/{id}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Implements(t, (*http.Hijacker)(nil), w)
 		assert.Implements(t, (*http.Pusher)(nil), w)
@@ -162,7 +162,7 @@ func TestSDKIntegration(t *testing.T) {
 	provider.RegisterSpanProcessor(sr)
 
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar", WithTracerProvider(provider)))
+	router.Use(Middleware("example.com", WithTracerProvider(provider)))
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
@@ -176,20 +176,18 @@ func TestSDKIntegration(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"/user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/user/123"),
 	)
 	assertSpan(t, sr.Ended()[1],
 		"/book/{title}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/book/foo"),
 	)
 }
 
@@ -199,7 +197,7 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 	provider.RegisterSpanProcessor(sr)
 
 	router := chi.NewRouter()
-	router.Use(Middleware("foobar", WithTracerProvider(provider), WithFilter(func(r *http.Request) bool {
+	router.Use(Middleware("example.com", WithTracerProvider(provider), WithFilter(func(r *http.Request) bool {
 		if r.URL.Path == "/live" || r.URL.Path == "/ready" {
 			return false
 		}
@@ -224,20 +222,18 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"/user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/user/123"),
 	)
 	assertSpan(t, sr.Ended()[1],
 		"/book/{title}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/book/foo"),
 	)
 }
 
@@ -249,7 +245,7 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 	router := chi.NewRouter()
 	router.Use(
 		Middleware(
-			"foobar",
+			"example.com",
 			WithTracerProvider(provider),
 			WithChiRoutes(router),
 		),
@@ -267,20 +263,18 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"/user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/user/123"),
 	)
 	assertSpan(t, sr.Ended()[1],
 		"/book/{title}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/book/foo"),
 	)
 }
 
@@ -292,7 +286,7 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 	router := chi.NewRouter()
 	router.Use(
 		Middleware(
-			"foobar",
+			"example.com",
 			WithTracerProvider(provider),
 			WithChiRoutes(router),
 		),
@@ -314,20 +308,18 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"overriden span name",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/user/123"),
 	)
 	assertSpan(t, sr.Ended()[1],
 		"/book/{title}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/book/foo"),
 	)
 }
 
@@ -339,7 +331,7 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	router := chi.NewRouter()
 	router.Use(
 		Middleware(
-			"foobar",
+			"example.com",
 			WithTracerProvider(provider),
 			WithRequestMethodInSpanName(true),
 		),
@@ -357,20 +349,18 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"GET /user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/user/123"),
 	)
 	assertSpan(t, sr.Ended()[1],
 		"GET /book/{title}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
+		attribute.String("server.address", "example.com"),
+		attribute.Int("http.response.status_code", http.StatusOK),
+		attribute.String("http.request.method", "GET"),
+		attribute.String("url.path", "/book/foo"),
 	)
 }
 
