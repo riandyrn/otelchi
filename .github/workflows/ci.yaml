@@ -7,27 +7,44 @@ on:
     branches:
       - master
   pull_request:
-env:
-  DEFAULT_GO_VERSION: 1.15
 jobs:
   test-build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.15", "1.16", "1.17", "1.18", "1.19", "1.20"]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Currently Github Action does not support `arm*` architecture on default runners.
+        # Check here for details: https://github.com/orgs/community/discussions/25319#discussioncomment-3247468
+        arch: ["386", "amd64"]
+        exclude:
+          # Unsupported OS architecture
+          - os: macos-latest
+            arch: ["386"]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Install Go
-        uses: actions/setup-go@v2.1.3
+        uses: actions/setup-go@v5
         with:
-          go-version: ${{ env.DEFAULT_GO_VERSION }}
-      - name: Checkout Repo
-        uses: actions/checkout@v2
-      - name: Run test
-        run: go test ./...
-      - name: Build
-        run: go build
-      - name: Build Examples
+          go-version: ${{ matrix.go-version }}
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Environment
         run: |
-          # build basic example
-          docker build -f ./examples/basic/Dockerfile .
-
-          # build multi services example
-          docker build -f ./examples/multi-services/back-svc/Dockerfile ./examples/multi-services
-          docker build -f ./examples/multi-services/front-svc/Dockerfile ./examples/multi-services
+          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+        shell: bash
+      - name: Cache Go Modules
+        uses: actions/cache@v2
+        env:
+          cache-name: go-mod-cache
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+      - name: Run automated tests
+        env:
+          GOARCH: ${{ matrix.arch }}
+        run: go test ./...
+      - name: Test build
+        env:
+          GOARCH: ${{ matrix.arch }}
+        run: go build
