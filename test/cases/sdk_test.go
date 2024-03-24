@@ -17,7 +17,7 @@ import (
 
 func TestSDKIntegration(t *testing.T) {
 	// prepare router and span recorder
-	router, sr := newSDKTestRouter("foobar")
+	router, sr := newSDKTestRouter("foobar", false)
 
 	// define routes
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
@@ -65,7 +65,7 @@ func TestSDKIntegration(t *testing.T) {
 
 func TestSDKIntegrationWithFilters(t *testing.T) {
 	// prepare router and span recorder
-	router, sr := newSDKTestRouter("foobar", otelchi.WithFilter(func(r *http.Request) bool {
+	router, sr := newSDKTestRouter("foobar", false, otelchi.WithFilter(func(r *http.Request) bool {
 		// if client access /live or /ready, there should be no span
 		if r.URL.Path == "/live" || r.URL.Path == "/ready" {
 			return false
@@ -121,46 +121,51 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 }
 
 func TestSDKIntegrationWithChiRoutes(t *testing.T) {
-	sr := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider()
-	provider.RegisterSpanProcessor(sr)
+	// define router & span recorder
+	router, sr := newSDKTestRouter("foobar", true)
 
-	router := chi.NewRouter()
-	router.Use(
-		otelchi.Middleware(
-			"foobar",
-			otelchi.WithTracerProvider(provider),
-			otelchi.WithChiRoutes(router),
-		),
-	)
+	// define route
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	r1 := httptest.NewRequest("GET", "/book/foo", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-	router.ServeHTTP(w, r1)
+	// execute requests
+	reqs := []*http.Request{
+		httptest.NewRequest("GET", "/user/123", nil),
+		httptest.NewRequest("GET", "/book/foo", nil),
+	}
+	executeRequests(router, reqs)
 
-	require.Len(t, sr.Ended(), 2)
-	assertSpan(t, sr.Ended()[0],
-		"/user/{id:[0-9]+}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
-	)
-	assertSpan(t, sr.Ended()[1],
-		"/book/{title}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
-	)
+	// get recorded spans
+	recordedSpans := sr.Ended()
+
+	// ensure that we have 2 recorded spans
+	require.Len(t, recordedSpans, len(reqs))
+
+	// ensure span values
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/123",
+				"/user/{id:[0-9]+}",
+			),
+		},
+		{
+			Name: "/book/{title}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/book/foo",
+				"/book/{title}",
+			),
+		},
+	})
 }
 
 func TestSDKIntegrationOverrideSpanName(t *testing.T) {
@@ -273,7 +278,7 @@ func ok(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func newSDKTestRouter(serverName string, opts ...otelchi.Option) (*chi.Mux, *tracetest.SpanRecorder) {
+func newSDKTestRouter(serverName string, withChiRoutes bool, opts ...otelchi.Option) (*chi.Mux, *tracetest.SpanRecorder) {
 	spanRecorder := tracetest.NewSpanRecorder()
 	tracerProvider := sdktrace.NewTracerProvider()
 	tracerProvider.RegisterSpanProcessor(spanRecorder)
@@ -281,6 +286,9 @@ func newSDKTestRouter(serverName string, opts ...otelchi.Option) (*chi.Mux, *tra
 	opts = append(opts, otelchi.WithTracerProvider(tracerProvider))
 
 	router := chi.NewRouter()
+	if withChiRoutes {
+		opts = append(opts, otelchi.WithChiRoutes(router))
+	}
 	router.Use(otelchi.Middleware(serverName, opts...))
 
 	return router, spanRecorder
