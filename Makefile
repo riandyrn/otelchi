@@ -6,5 +6,5 @@ test:
 	docker build \
 		-t go-test \
 		--build-arg GO_VERSIONS=${GO_VERSIONS} \
-		-f ./deploy/test/Dockerfile . && \
+		-f ./test/infras/Dockerfile . && \
 		docker run --rm go-test

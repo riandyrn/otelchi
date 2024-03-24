@@ -17,17 +17,17 @@ WORKDIR /go/src/github.com/riandyrn/otelchi
 
 # Install Multiple Go Versions
 ARG GO_VERSIONS
-COPY ./deploy/test/install_go.sh ./deploy/test/
-RUN chmod +x ./deploy/test/install_go.sh && sh ./deploy/test/install_go.sh
+COPY ./test/infras/install_go.sh ./test/infras/
+RUN chmod +x ./test/infras/install_go.sh && sh ./test/infras/install_go.sh
 
 COPY go.mod go.sum ./
 RUN go mod download -x
 
-COPY ./deploy/test/entrypoint.sh ./deploy/test/
-RUN chmod +x ./deploy/test/entrypoint.sh
+COPY ./test/infras/entrypoint.sh ./test/infras/
+RUN chmod +x ./test/infras/entrypoint.sh
 
 ENV GO_VERSIONS=$GO_VERSIONS
 
 COPY . .
 
-ENTRYPOINT [ "./deploy/test/entrypoint.sh" ]
+ENTRYPOINT [ "./test/infras/entrypoint.sh" ]
