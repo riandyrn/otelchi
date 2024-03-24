@@ -266,6 +266,54 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	})
 }
 
+func TestSDKIntegrationNoOpHandler(t *testing.T) {
+	// prepare router and span recorder
+	router, sr := newSDKTestRouter("foobar", false)
+
+	// define routes
+	router.HandleFunc("/user/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) {})
+	router.HandleFunc("/book/{title}", func(w http.ResponseWriter, r *http.Request) {})
+
+	// execute requests
+	reqs := []*http.Request{
+		httptest.NewRequest("GET", "/user/123", nil),
+		httptest.NewRequest("GET", "/book/foo", nil),
+	}
+	executeRequests(router, reqs)
+
+	// get recorded spans
+	recordedSpans := sr.Ended()
+
+	// ensure that we have 2 recorded spans
+	require.Len(t, recordedSpans, len(reqs))
+
+	// ensure span values
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/123",
+				"/user/{id:[0-9]+}",
+			),
+		},
+		{
+			Name: "/book/{title}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/book/foo",
+				"/book/{title}",
+			),
+		},
+	})
+}
+
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, kind, span.SpanKind())
