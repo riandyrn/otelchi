@@ -23,21 +23,18 @@ func TestSDKIntegration(t *testing.T) {
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
-	// prepare requests & execute them
-	w := httptest.NewRecorder()
+	// execute requests
 	reqs := []*http.Request{
 		httptest.NewRequest("GET", "/user/123", nil),
 		httptest.NewRequest("GET", "/book/foo", nil),
 	}
-	for _, r := range reqs {
-		router.ServeHTTP(w, r)
-	}
+	executeRequests(router, reqs)
 
 	// get recorded spans
 	recordedSpans := sr.Ended()
 
 	// ensure that we have 2 recorded spans
-	require.Len(t, recordedSpans, 2)
+	require.Len(t, recordedSpans, len(reqs))
 
 	// ensure span values
 	checkSpans(t, recordedSpans, []spanValueCheck{
@@ -67,51 +64,60 @@ func TestSDKIntegration(t *testing.T) {
 }
 
 func TestSDKIntegrationWithFilters(t *testing.T) {
-	sr := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider()
-	provider.RegisterSpanProcessor(sr)
-
-	router := chi.NewRouter()
-	router.Use(otelchi.Middleware("foobar", otelchi.WithTracerProvider(provider), otelchi.WithFilter(func(r *http.Request) bool {
+	// prepare router and span recorder
+	router, sr := newSDKTestRouter("foobar", otelchi.WithFilter(func(r *http.Request) bool {
+		// if client access /live or /ready, there should be no span
 		if r.URL.Path == "/live" || r.URL.Path == "/ready" {
 			return false
 		}
+
+		// otherwise always return the span
 		return true
-	})))
+	}))
+
+	// define router
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 	router.HandleFunc("/health", ok)
 	router.HandleFunc("/ready", ok)
 
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	r1 := httptest.NewRequest("GET", "/book/foo", nil)
-	r2 := httptest.NewRequest("GET", "/live", nil)
-	r3 := httptest.NewRequest("GET", "/ready", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-	router.ServeHTTP(w, r1)
-	router.ServeHTTP(w, r2)
-	router.ServeHTTP(w, r3)
+	// execute requests
+	executeRequests(router, []*http.Request{
+		httptest.NewRequest("GET", "/user/123", nil),
+		httptest.NewRequest("GET", "/book/foo", nil),
+		httptest.NewRequest("GET", "/live", nil),
+		httptest.NewRequest("GET", "/ready", nil),
+	})
 
-	require.Len(t, sr.Ended(), 2)
-	assertSpan(t, sr.Ended()[0],
-		"/user/{id:[0-9]+}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
-	)
-	assertSpan(t, sr.Ended()[1],
-		"/book/{title}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/book/foo"),
-		attribute.String("http.route", "/book/{title}"),
-	)
+	// get recorded spans and ensure the length is 2
+	recordedSpans := sr.Ended()
+	require.Len(t, recordedSpans, 2)
+
+	// ensure span values
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/123",
+				"/user/{id:[0-9]+}",
+			),
+		},
+		{
+			Name: "/book/{title}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/book/foo",
+				"/book/{title}",
+			),
+		},
+	})
 }
 
 func TestSDKIntegrationWithChiRoutes(t *testing.T) {
@@ -267,7 +273,7 @@ func ok(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func newSDKTestRouter(serverName string, opts ...otelchi.Option) (chi.Router, *tracetest.SpanRecorder) {
+func newSDKTestRouter(serverName string, opts ...otelchi.Option) (*chi.Mux, *tracetest.SpanRecorder) {
 	spanRecorder := tracetest.NewSpanRecorder()
 	tracerProvider := sdktrace.NewTracerProvider()
 	tracerProvider.RegisterSpanProcessor(spanRecorder)
@@ -301,5 +307,12 @@ func checkSpans(t *testing.T, spans []sdktrace.ReadOnlySpan, valueChecks []spanV
 		span := spans[i]
 		valueCheck := valueChecks[i]
 		assertSpan(t, span, valueCheck.Name, valueCheck.Kind, valueCheck.Attributes...)
+	}
+}
+
+func executeRequests(router *chi.Mux, reqs []*http.Request) {
+	w := httptest.NewRecorder()
+	for _, r := range reqs {
+		router.ServeHTTP(w, r)
 	}
 }
