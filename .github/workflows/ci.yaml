@@ -9,38 +9,9 @@ on:
   pull_request:
 jobs:
   test-build:
-    strategy:
-      matrix:
-        go-version: ["1.15"]
-        os: [ubuntu-latest]
-        # Currently Github Action does not support `arm*` architecture on default runners.
-        # Check here for details: https://github.com/orgs/community/discussions/25319#discussioncomment-3247468
-        arch: ["amd64"]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
-      - name: Install Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
       - name: Checkout Code
         uses: actions/checkout@v4
-      - name: Setup Environment
-        run: |
-          echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-        shell: bash
-      - name: Cache Go Modules
-        uses: actions/cache@v2
-        env:
-          cache-name: go-mod-cache
-        with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
-      - name: Run automated tests
-        env:
-          GOARCH: ${{ matrix.arch }}
-        run: go test ./...
-      - name: Test build
-        env:
-          GOARCH: ${{ matrix.arch }}
-        run: go build
+      - name: Run Tests
+        run: make test

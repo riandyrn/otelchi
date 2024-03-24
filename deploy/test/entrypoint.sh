@@ -4,7 +4,9 @@
 set -e
 
 # Define Go versions
-go_versions="1.16 1.17 1.18 1.19 1.20"
+go_versions=${GO_VERSIONS}
+
+echo ${GO_VERSIONS}
 
 # Iterate over each version
 for version in $go_versions; do
