@@ -168,7 +168,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
 	// in chi v5.0.8, the root route will be returned has an empty string
-	// (see github.com/go-chi/chi/v5@v5.0.8/context.go:126)
+	// (see https://github.com/go-chi/chi/blob/v5.0.8/context.go#L126)
 	if spanName == "" {
 		spanName = "/"
 	}

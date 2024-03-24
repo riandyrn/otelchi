@@ -314,6 +314,41 @@ func TestSDKIntegrationNoOpHandler(t *testing.T) {
 	})
 }
 
+func TestSDKIntegrationRootHandler(t *testing.T) {
+	// prepare router and span recorder
+	router, sr := newSDKTestRouter("foobar", true)
+
+	// define routes
+	router.HandleFunc("/", ok)
+
+	// execute requests
+	reqs := []*http.Request{
+		httptest.NewRequest("GET", "/", nil),
+	}
+	executeRequests(router, reqs)
+
+	// get recorded spans
+	recordedSpans := sr.Ended()
+
+	// ensure that we have 1 recorded span
+	require.Len(t, recordedSpans, 1)
+
+	// ensure span values
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/",
+				"/",
+			),
+		},
+	})
+}
+
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, kind, span.SpanKind())
