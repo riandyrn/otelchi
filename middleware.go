@@ -10,13 +10,13 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	otelcontrib "go.opentelemetry.io/contrib"
 	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 const (
-	tracerName = "github.com/riandyrn/otelchi"
+	tracerName             = "github.com/riandyrn/otelchi"
+	instrumentationVersion = "0.6.0" // TODO: we need to find a way to automate this later
 )
 
 // Middleware sets up a handler to start tracing the incoming
@@ -32,7 +32,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	}
 	tracer := cfg.TracerProvider.Tracer(
 		tracerName,
-		oteltrace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+		oteltrace.WithInstrumentationVersion(instrumentationVersion),
 	)
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
