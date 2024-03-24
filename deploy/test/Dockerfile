@@ -16,7 +16,7 @@ RUN curl -sLk https://raw.githubusercontent.com/kevincobain2000/gobrew/master/gi
 WORKDIR /go/src/github.com/riandyrn/otelchi
 
 # Install Multiple Go Versions
-ARG GO_VERSIONS="1.16 1.17 1.18 1.19 1.20"
+ARG GO_VERSIONS
 COPY ./deploy/test/install_go.sh ./deploy/test/
 RUN chmod +x ./deploy/test/install_go.sh && sh ./deploy/test/install_go.sh
 
