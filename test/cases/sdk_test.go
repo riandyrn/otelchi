@@ -266,25 +266,27 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	})
 }
 
-func TestSDKIntegrationNoOpHandler(t *testing.T) {
+func TestSDKIntegrationEmptyHandlerDefaultStatusCode(t *testing.T) {
 	// prepare router and span recorder
 	router, sr := newSDKTestRouter("foobar", false)
 
 	// define routes
 	router.HandleFunc("/user/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) {})
 	router.HandleFunc("/book/{title}", func(w http.ResponseWriter, r *http.Request) {})
+	router.HandleFunc("/not-found", http.NotFound)
 
 	// execute requests
 	reqs := []*http.Request{
 		httptest.NewRequest("GET", "/user/123", nil),
 		httptest.NewRequest("GET", "/book/foo", nil),
+		httptest.NewRequest("GET", "/not-found", nil),
 	}
 	executeRequests(router, reqs)
 
 	// get recorded spans
 	recordedSpans := sr.Ended()
 
-	// ensure that we have 2 recorded spans
+	// ensure that we have 3 recorded spans
 	require.Len(t, recordedSpans, len(reqs))
 
 	// ensure span values
@@ -309,6 +311,17 @@ func TestSDKIntegrationNoOpHandler(t *testing.T) {
 				"GET",
 				"/book/foo",
 				"/book/{title}",
+			),
+		},
+		{
+			Name: "/not-found",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusNotFound,
+				"GET",
+				"/not-found",
+				"/not-found",
 			),
 		},
 	})
@@ -361,7 +374,7 @@ func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trac
 		if !assert.Contains(t, got, want.Key) {
 			continue
 		}
-		assert.Equal(t, got[want.Key], want.Value)
+		assert.Equal(t, want.Value, got[want.Key])
 	}
 }
 
