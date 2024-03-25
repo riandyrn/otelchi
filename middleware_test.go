@@ -374,9 +374,56 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 	)
 }
 
+func TestEmptyHandlerDefaultStatusCode(t *testing.T) {
+	sr := tracetest.NewSpanRecorder()
+	provider := sdktrace.NewTracerProvider()
+	provider.RegisterSpanProcessor(sr)
+
+	router := chi.NewRouter()
+	router.Use(
+		Middleware(
+			"foobar",
+			WithTracerProvider(provider),
+			WithRequestMethodInSpanName(true),
+		),
+	)
+	router.HandleFunc("/", func(_ http.ResponseWriter, _ *http.Request) {})
+	router.HandleFunc("/not_found", http.NotFound)
+	r := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusOK, w.Result().StatusCode)
+
+	r = httptest.NewRequest("GET", "/not_found", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	assert.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+
+	require.Len(t, sr.Ended(), 2)
+	assertSpan(t, sr.Ended()[0],
+		"GET /",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusOK),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/"),
+		attribute.String("http.route", ""),
+	)
+
+	assertSpan(t, sr.Ended()[1],
+		"GET /not_found",
+		trace.SpanKindServer,
+		attribute.String("http.server_name", "foobar"),
+		attribute.Int("http.status_code", http.StatusNotFound),
+		attribute.String("http.method", "GET"),
+		attribute.String("http.target", "/not_found"),
+		attribute.String("http.route", "/not_found"),
+	)
+}
+
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
-	assert.Equal(t, trace.SpanKindServer, span.SpanKind())
+	assert.Equal(t, kind, span.SpanKind())
 
 	got := make(map[attribute.Key]attribute.Value, len(span.Attributes()))
 	for _, a := range span.Attributes() {
@@ -386,6 +433,6 @@ func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trac
 		if !assert.Contains(t, got, want.Key) {
 			continue
 		}
-		assert.Equal(t, got[want.Key], want.Value)
+		assert.Equal(t, want.Value, got[want.Key])
 	}
 }
