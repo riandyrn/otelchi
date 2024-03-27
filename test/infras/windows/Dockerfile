@@ -7,7 +7,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointMa
 # Install Multiple Go Versions
 ARG GO_VERSIONS
 COPY ./test/infras/windows/install_go.ps1 /test/infras/windows/
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; /test/infras/windows/install_go.ps1 | Invoke-Expression
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; iex /test/infras/windows/install_go.ps1
 
 # Install dependencies
 COPY go.mod go.sum /
@@ -15,10 +15,10 @@ RUN go mod download -x
 
 # Copy entrypoint
 COPY ./test/infras/windows/entrypoint.ps1 /test/infras/windows/
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; /test/infras/windows/entrypoint.ps1 | Invoke-Expression
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; iex /test/infras/windows/entrypoint.ps1
 
 ENV GO_VERSIONS=$GO_VERSIONS
 
 COPY . .
 
-ENTRYPOINT [ "powershell", "/test/infras/windows/entrypoint.ps1" ]
+ENTRYPOINT [ "iex", "/test/infras/windows/entrypoint.ps1" ]
