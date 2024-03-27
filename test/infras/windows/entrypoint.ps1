@@ -1,5 +1,5 @@
 # Define Go versions
-$go_versions = $env:GO_VERSIONS -split ','
+$go_versions = $env:GO_VERSIONS -split ' '
 
 Write-Host $env:GO_VERSIONS
 
