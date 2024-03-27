@@ -1,5 +1,5 @@
 ARG GO_VERSION=1.22
-FROM golang:${GO_VERSION}-nanoserver-ltsc2022 as test-windows
+FROM golang:${GO_VERSION} as test-windows
 
 # Install Gobrew
 RUN Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/kevincobain2000/gobrew/master/git.io.ps1'))
