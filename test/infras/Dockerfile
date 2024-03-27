@@ -10,4 +10,4 @@ RUN go mod download -x
 # Copy Source Code
 COPY . .
 
-ENTRYPOINT ["go", "test", "./..."]
+ENTRYPOINT go build && go test ./...
