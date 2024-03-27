@@ -12,6 +12,7 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; iex /test/infras/windows/i
 ENV GO111MODULE=on \
     CGO_ENABLED=0 \
     GOOS=windows \
+    GOSUMDB=off \
     GOPROXY=https://proxy.golang.org,direct
 
 # Install dependencies
