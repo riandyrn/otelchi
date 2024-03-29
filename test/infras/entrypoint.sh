@@ -13,7 +13,6 @@ for version in $go_versions; do
     # Set Go version using gobrew
     gobrew use "$version"
     
-    # Build and test
-    go build .
-    go test ./...
+    # Execute Test as defined in the Makefile
+    make go-test
 done

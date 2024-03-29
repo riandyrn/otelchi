@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
 	git \
 	unzip \
 	wget \
+	make \
 	&& rm -rf /var/lib/apt/lists/*
 
 # Install Gobrew
