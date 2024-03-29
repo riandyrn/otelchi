@@ -1,0 +1,42 @@
+name: compatibility-test
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  compatibility-test:
+    if: github.event.review.state == 'APPROVED'
+    strategy:
+      matrix:
+        go-version: ["1.15", "1.16", "1.17"]
+        os: [windows-latest]
+        arch: ["386", amd64]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Environment
+      run: |
+        echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+      shell: bash
+    - name: Module cache
+      uses: actions/cache@v4
+      env:
+        cache-name: go-mod-cache
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-${{ env.cache-name }}-${{ hashFiles('**/go.sum') }}
+    - name: Run build
+      env:
+        GOARCH: ${{ matrix.arch }}
+      run: make go-build
+    - name: Run tests
+      env:
+        GOARCH: ${{ matrix.arch }}
+      run: make go-test
