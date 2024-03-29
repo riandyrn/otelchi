@@ -1,4 +1,5 @@
 name: ci
+
 on:
   push:
     paths-ignore:
@@ -7,12 +8,10 @@ on:
     branches:
       - master
   pull_request:
+
 jobs:
-  test:
-    strategy:
-      matrix:
-        os: [windows-latest]
-    runs-on: ${{ matrix.os }}
+  test-build:
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4

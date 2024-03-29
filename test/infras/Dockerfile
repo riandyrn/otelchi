@@ -1,21 +1,33 @@
-FROM golang:1.22.1
+FROM debian:buster
 
-# Set Shell to CMD for Windows
-SHELL ["cmd", "/S", "/C"]
+RUN apt-get update && apt-get install -y \
+	gcc \
+	curl \
+	git \
+	unzip \
+	wget \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Install Gobrew
+ENV PATH="/root/.gobrew/current/bin:/root/.gobrew/bin:$PATH"
+RUN curl -sLk https://raw.githubusercontent.com/kevincobain2000/gobrew/master/git.io.sh | sh
 
 # Set Working Directory
 WORKDIR /go/src/github.com/riandyrn/otelchi
 
-# Install Dependencies
+# Install Multiple Go Versions
+ARG GO_VERSIONS
+COPY ./test/infras/install_go.sh ./test/infras/
+RUN chmod +x ./test/infras/install_go.sh && sh ./test/infras/install_go.sh
+
 COPY go.mod go.sum ./
 RUN go mod download -x
 
-# Install Golang Versions
-RUN go install golang.org/dl/go1.15@latest && go1.15 download && \
-	go install golang.org/dl/go1.16@latest && go1.16 download && \
-	go install golang.org/dl/go1.17@latest && go1.17 download
+COPY ./test/infras/entrypoint.sh ./test/infras/
+RUN chmod +x ./test/infras/entrypoint.sh
 
-# Copy Source Code
+ENV GO_VERSIONS=$GO_VERSIONS
+
 COPY . .
 
-ENTRYPOINT go1.15 test ./...
+ENTRYPOINT [ "./test/infras/entrypoint.sh" ]
