@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	tracerName             = "github.com/riandyrn/otelchi"
-	instrumentationVersion = "0.6.0" // TODO: we need to find a way to automate this later
+	tracerName = "github.com/riandyrn/otelchi"
 )
 
 // Middleware sets up a handler to start tracing the incoming
@@ -32,7 +31,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	}
 	tracer := cfg.TracerProvider.Tracer(
 		tracerName,
-		oteltrace.WithInstrumentationVersion(instrumentationVersion),
+		oteltrace.WithInstrumentationVersion(Version()),
 	)
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
