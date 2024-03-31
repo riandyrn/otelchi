@@ -21,10 +21,11 @@ The steps for this procedure are the following:
 6. Upon approval, the PR will be merged to `master` and the branch will be deleted.
 7. Create new release from the `master` branch.
 8. Set the title to `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
-9. Set the newly release tag using this format `v{MAJOR}.{MINOR}.{BUILD}` (e.g `v0.6.0`).
+9. Set the newly release tag using this format: `v{MAJOR}.{MINOR}.{BUILD}` (e.g `v0.6.0`).
 10. Set the description of the release to match with the content inside `CHANGELOG.md`.
 11. Set the release as the latest release.
-12. Done.
+12. Publish the release.
+13. Done.
 
 ## Non-Latest Release
 
