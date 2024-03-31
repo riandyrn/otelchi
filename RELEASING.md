@@ -17,7 +17,7 @@ The steps for this procedure are the following:
 2. Update method `Version()` in `version.go` to return the target version.
 3. Update the `CHANGELOG.md` to include all the notable changes.
 4. Create a new PR from this branch to `master` with the title: `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
-5. At least one maintainer should approve the PR.
+5. At least one maintainer should approve the PR. However if the PR is created by the repo owner, it doesn't need to get approval from other maintainers.
 6. Upon approval, the PR will be merged to `master` and the branch will be deleted.
 7. Create new release from the `master` branch.
 8. Set the title to `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
