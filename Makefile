@@ -25,5 +25,5 @@ test-build-basic-example:
 	docker build -f ./examples/basic/Dockerfile .
 
 test-build-multi-services-example:
-	docker build -f ./examples/multi-services/back-svc/Dockerfile ./examples/multi-services
-	docker build -f ./examples/multi-services/front-svc/Dockerfile ./examples/multi-services
+	docker build -f ./examples/multi-services/back-svc/Dockerfile .
+	docker build -f ./examples/multi-services/front-svc/Dockerfile .
