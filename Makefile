@@ -14,3 +14,16 @@ test:
 		--build-arg GO_VERSIONS=${GO_VERSIONS} \
 		-f ./test/infras/Dockerfile . && \
 		docker run --rm go-test
+		
+	make test-build-example
+
+test-build-example:
+	make test-build-basic-example
+	make test-build-multi-services-example
+
+test-build-basic-example:
+	docker build -f ./examples/basic/Dockerfile .
+
+test-build-multi-services-example:
+	docker build -f ./examples/multi-services/back-svc/Dockerfile ./examples/multi-services
+	docker build -f ./examples/multi-services/front-svc/Dockerfile ./examples/multi-services
