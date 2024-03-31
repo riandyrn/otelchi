@@ -18,9 +18,14 @@ The steps for this procedure are the following:
 3. Update the `CHANGELOG.md` to include all the notable changes.
 4. Create a new PR from this branch to `master` with the title: `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
 5. One maintainers should at least approve the PR.
-6. Upon approval, the PR will be merged to `master`.
-7. Create new release with the description & tag matches the content inside `CHANGELOG.md`. Set the title to `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
-8. Set the release as the latest release.
-9. Done.
+6. Upon approval, the PR will be merged to `master` and the branch will be deleted.
+7. Create new release from the `master` branch.
+8. Set the title to `Release v{MAJOR}.{MINOR}.{BUILD}` (e.g `Release v0.6.0`).
+9. Set the newly release tag using this format `v{MAJOR}.{MINOR}.{BUILD}` (e.g `v0.6.0`).
+10. Set the description of the release to match with the content inside `CHANGELOG.md`.
+11. Set the release as the latest release.
+12. Done.
 
 ## Non-Latest Release
+
+<!-- This procedure is used when we need to create fix or patch to the older releases. For example our latest release is ` -->
