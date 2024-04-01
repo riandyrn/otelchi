@@ -10,10 +10,16 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_started
+  
   front-svc:
     build:
-      dockerfile: ./front-svc/Dockerfile
-      context: .
+      # we set the build context to github.com/riandyrn/otelchi because we use relative 
+      # path in go.mod for otelchi library
+      context: ../../
+
+      # since we are now on github.com/riandyrn/otelchi, the dockerfile location would be
+      # in ./examples/multi-services/front-svc/Dockerfile
+      dockerfile: ./examples/multi-services/front-svc/Dockerfile
     healthcheck:
       test: "curl -XGET http://localhost:8090"
       start_period: 5s
@@ -22,10 +28,16 @@ services:
       - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
     ports:
       - 8090:8090
+  
   back-svc:
     build:
-      dockerfile: ./back-svc/Dockerfile
-      context: .
+      # we set the build context to github.com/riandyrn/otelchi because we use relative 
+      # path in go.mod for otelchi library
+      context: ../../
+
+      # since we are now on github.com/riandyrn/otelchi, the dockerfile location would be
+      # in ./examples/multi-services/back-svc/Dockerfile
+      dockerfile: ./examples/multi-services/back-svc/Dockerfile
     healthcheck:
       test: "curl -XGET http://localhost:8091"
       start_period: 5s
@@ -33,6 +45,7 @@ services:
       - JAEGER_ENDPOINT_URL=http://jaeger:14268/api/traces
     ports:
       - 8091:8091
+  
   jaeger:
     image: jaegertracing/all-in-one:1.36
     environment:

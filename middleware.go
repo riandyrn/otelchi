@@ -10,8 +10,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 
-	otelcontrib "go.opentelemetry.io/contrib"
-	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.12.0"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
@@ -32,7 +31,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	}
 	tracer := cfg.TracerProvider.Tracer(
 		tracerName,
-		oteltrace.WithInstrumentationVersion(otelcontrib.SemVersion()),
+		oteltrace.WithInstrumentationVersion(Version()),
 	)
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
@@ -81,7 +80,6 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 			return func(b []byte) (int, error) {
 				if !rrw.written {
 					rrw.written = true
-					rrw.status = http.StatusOK
 				}
 				return next(b)
 			}
@@ -169,7 +167,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
 	// in chi v5.0.8, the root route will be returned has an empty string
-	// (see github.com/go-chi/chi/v5@v5.0.8/context.go:126)
+	// (see https://github.com/go-chi/chi/blob/v5.0.8/context.go#L126)
 	if spanName == "" {
 		spanName = "/"
 	}
