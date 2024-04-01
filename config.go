@@ -86,10 +86,10 @@ func WithFilter(filter func(r *http.Request) bool) Option {
 // Instead of using a fixed name as the parameter, this function accepts a function
 // that takes a string (the default trace header) and returns a string (the custom trace header).
 // If the provided function is nil, the default trace header (X-Trace-ID) will be used.
-func WithTraceResponseHeaderKey(headerKeyFunc func() string) Option {
+func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return optionFunc(func(cfg *config) {
 		if headerKeyFunc == nil {
-			cfg.TraceResponseHeaderKey = traceResponseHeaderKey // Default trace header
+			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // Default trace header
 		} else {
 			cfg.TraceResponseHeaderKey = headerKeyFunc()
 		}

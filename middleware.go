@@ -17,7 +17,7 @@ import (
 const (
 	tracerName = "github.com/riandyrn/otelchi"
 
-	traceResponseHeaderKey = "X-Trace-ID"
+	defaultTraceResponseHeaderKey = "X-Trace-ID"
 )
 
 // Middleware sets up a handler to start tracing the incoming
@@ -38,9 +38,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
 	}
-	if cfg.TraceResponseHeaderKey == "" {
-		cfg.TraceResponseHeaderKey = traceResponseHeaderKey
-	}
+
 	return func(handler http.Handler) http.Handler {
 		return traceware{
 			serverName:             serverName,
