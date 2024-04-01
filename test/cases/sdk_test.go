@@ -367,13 +367,16 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 	provider := sdktrace.NewTracerProvider()
 	provider.RegisterSpanProcessor(sr)
 
-	customeHeaderKey := "X-Custom-Trace-ID"
+	// Define a function inline that transforms the default header name to a custom header name
+	customHeaderKeyFunc := func() string {
+		return "X-Custom-Trace-ID"
+	}
 
 	router := chi.NewRouter()
 	router.Use(otelchi.Middleware(
 		"foobar",
 		otelchi.WithTracerProvider(provider),
-		otelchi.WithTraceResponseHeaderKey(customeHeaderKey),
+		otelchi.WithTraceResponseHeaderKey(customHeaderKeyFunc),
 	))
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
@@ -392,7 +395,7 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 		attribute.String("http.target", "/user/123"),
 		attribute.String("http.route", "/user/{id:[0-9]+}"),
 	)
-	require.Equal(t, w.Header().Get(customeHeaderKey), sr.Ended()[0].SpanContext().TraceID().String())
+	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), sr.Ended()[0].SpanContext().TraceID().String())
 }
 
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {

@@ -147,8 +147,8 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	)
 	defer span.End()
 
-	// put trace_id to response header
-	if span.SpanContext().HasTraceID() {
+	// put trace_id to response header only when WithTraceResponseHeaderKey is used
+	if tw.traceResponseHeaderKey != "" && span.SpanContext().HasTraceID() {
 		w.Header().Add(tw.traceResponseHeaderKey, span.SpanContext().TraceID().String())
 	}
 
