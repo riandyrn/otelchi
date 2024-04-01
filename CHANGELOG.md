@@ -8,9 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] - 2024-04-02
+
 ### Added
 
-- Add `WithTraceResponseHeaderKey` option to set custom response header key. (#23)
+- Add `WithTraceIDResponseHeader` option to enable adding trace id into response header. (#36)
 - Add multiple go versions test scripts for local and CI pipeline. (#29)
 - Add compatibility testing for `ubuntu`, `macos` and `windows`. (#32)
 - Add repo essentials docs. (#33)
@@ -20,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Upgrade to `v5.0.12` of `go-chi/chi`. (#29)
 - Upgrade to `v1.10.0` of `go.opentelemetry.io/otel`. (#29)
 - Upgrade to `v1.12.0` of `go.opentelemetry.io/otel/semconv`. (#29)
+- Set the required go version for both `examples/basic` & `examples/multi-services` to `1.15`, `go-chi/chi` to `v5.0.12`, & `go.opentelemetry.io/otel` to `v1.10.0` (#35)
 
 ## [0.5.2] - 2024-03-25
 
@@ -111,7 +114,8 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.6.0
 [0.5.2]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.2
 [0.5.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.1
 [0.5.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.0
