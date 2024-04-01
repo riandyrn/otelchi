@@ -6,6 +6,13 @@ services:
     depends_on:
       - mux-server
   mux-server:
-    build: .
+    build:
+      # we set the build context to github.com/riandyrn/otelchi because we use relative 
+      # path in go.mod for otelchi library
+      context: ../../
+      
+      # since we are now on github.com/riandyrn/otelchi, the dockerfile location would be
+      # in ./examples/basic/Dockerfile
+      dockerfile: ./examples/basic/Dockerfile
     ports:
       - "8080:8080"
