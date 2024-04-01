@@ -16,8 +16,6 @@ import (
 
 const (
 	tracerName = "github.com/riandyrn/otelchi"
-
-	defaultTraceResponseHeaderKey = "X-Trace-ID"
 )
 
 // Middleware sets up a handler to start tracing the incoming
