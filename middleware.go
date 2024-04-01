@@ -16,6 +16,8 @@ import (
 
 const (
 	tracerName = "github.com/riandyrn/otelchi"
+
+	defaultTraceResponseHeaderKey = "X-Trace-ID"
 )
 
 // Middleware sets up a handler to start tracing the incoming
@@ -36,27 +38,30 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
 	}
+
 	return func(handler http.Handler) http.Handler {
 		return traceware{
-			serverName:          serverName,
-			tracer:              tracer,
-			propagators:         cfg.Propagators,
-			handler:             handler,
-			chiRoutes:           cfg.ChiRoutes,
-			reqMethodInSpanName: cfg.RequestMethodInSpanName,
-			filter:              cfg.Filter,
+			serverName:             serverName,
+			tracer:                 tracer,
+			propagators:            cfg.Propagators,
+			handler:                handler,
+			chiRoutes:              cfg.ChiRoutes,
+			reqMethodInSpanName:    cfg.RequestMethodInSpanName,
+			filter:                 cfg.Filter,
+			traceResponseHeaderKey: cfg.TraceResponseHeaderKey,
 		}
 	}
 }
 
 type traceware struct {
-	serverName          string
-	tracer              oteltrace.Tracer
-	propagators         propagation.TextMapPropagator
-	handler             http.Handler
-	chiRoutes           chi.Routes
-	reqMethodInSpanName bool
-	filter              func(r *http.Request) bool
+	serverName             string
+	tracer                 oteltrace.Tracer
+	propagators            propagation.TextMapPropagator
+	handler                http.Handler
+	chiRoutes              chi.Routes
+	reqMethodInSpanName    bool
+	filter                 func(r *http.Request) bool
+	traceResponseHeaderKey string
 }
 
 type recordingResponseWriter struct {
@@ -139,6 +144,11 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
 	)
 	defer span.End()
+
+	// put trace_id to response header only when WithTraceResponseHeaderKey is used
+	if tw.traceResponseHeaderKey != "" && span.SpanContext().HasTraceID() {
+		w.Header().Add(tw.traceResponseHeaderKey, span.SpanContext().TraceID().String())
+	}
 
 	// get recording response writer
 	rrw := getRRW(w)

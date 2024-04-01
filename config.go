@@ -15,6 +15,7 @@ type config struct {
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
 	Filter                  func(r *http.Request) bool
+	TraceResponseHeaderKey  string
 }
 
 // Option specifies instrumentation configuration options.
@@ -78,5 +79,19 @@ func WithRequestMethodInSpanName(isActive bool) Option {
 func WithFilter(filter func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.Filter = filter
+	})
+}
+
+// WithTraceResponseHeaderKey is used for changing response header key that contains trace id.
+// Instead of using a fixed name as the parameter, this function accepts a function
+// that takes a string (the default trace header) and returns a string (the custom trace header).
+// If the provided function is nil, the default trace header (X-Trace-ID) will be used.
+func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
+	return optionFunc(func(cfg *config) {
+		if headerKeyFunc == nil {
+			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // Default trace header
+		} else {
+			cfg.TraceResponseHeaderKey = headerKeyFunc()
+		}
 	})
 }
