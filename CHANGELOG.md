@@ -10,6 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.6.0] - 2024-04-02
 
+### ⚠️ Notice ⚠️
+
+This release is the last to support Go `1.15`. The next release will require at least Go `1.18`.
+
 ### Added
 
 - Add `WithTraceIDResponseHeader` option to enable adding trace id into response header. (#36)
