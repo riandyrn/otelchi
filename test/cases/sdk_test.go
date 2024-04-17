@@ -389,7 +389,7 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"/user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
+		attribute.String("net.host.name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
 		attribute.String("http.target", "/user/123"),
@@ -419,7 +419,7 @@ func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
 	assertSpan(t, sr.Ended()[0],
 		"/user/{id:[0-9]+}",
 		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
+		attribute.String("net.host.name", "foobar"),
 		attribute.Int("http.status_code", http.StatusOK),
 		attribute.String("http.method", "GET"),
 		attribute.String("http.target", "/user/123"),
@@ -473,7 +473,7 @@ type spanValueCheck struct {
 
 func getSemanticAttributes(serverName string, httpStatusCode int, httpMethod, httpTarget, httpRoute string) []attribute.KeyValue {
 	return []attribute.KeyValue{
-		attribute.String("http.server_name", serverName),
+		attribute.String("net.host.name", serverName),
 		attribute.Int("http.status_code", httpStatusCode),
 		attribute.String("http.method", httpMethod),
 		attribute.String("http.target", httpTarget),
