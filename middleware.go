@@ -162,7 +162,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// during span creation
 	if len(routePattern) == 0 {
 		routePattern = chi.RouteContext(r.Context()).RoutePattern()
-		span.SetAttributes(semconv.HTTPRouteKey.String(routePattern))
+		span.SetAttributes(semconv.HTTPRoute(routePattern))
 
 		spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
 		span.SetName(spanName)
