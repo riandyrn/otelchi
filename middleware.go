@@ -164,8 +164,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		span.SetName(spanName)
 	}
 
-	// set target and route attribute
-	span.SetAttributes(semconv.HTTPTargetKey.String(r.URL.Path))
+	// set route attribute
 	span.SetAttributes(semconv.HTTPRouteKey.String(routePattern))
 
 	// set status code attribute
