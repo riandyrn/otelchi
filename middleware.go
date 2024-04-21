@@ -146,7 +146,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	// put trace_id to response header only when WithTraceResponseHeaderKey is used
-	if tw.traceResponseHeaderKey != "" && span.SpanContext().HasTraceID() {
+	if len(tw.traceResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
 		w.Header().Add(tw.traceResponseHeaderKey, span.SpanContext().TraceID().String())
 	}
 
@@ -169,7 +169,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// set status code attribute
-	span.SetAttributes(semconv.HTTPStatusCodeKey.Int(rrw.status))
+	span.SetAttributes(semconv.HTTPStatusCode(rrw.status))
 
 	// set span status
 	span.SetStatus(httpconv.ServerStatus(rrw.status))
