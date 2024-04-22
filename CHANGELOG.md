@@ -8,6 +8,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] - 2024-04-22
+
+### ⚠️ Notice ⚠️
+
+This release is the last to support Go `1.18`. The next release will require at least Go `1.19`.
+
+### Changed
+
+- Upgrade to `v1.14.0` of `go.opentelemetry.io/otel`. (#38)
+- Upgrade to `v1.17.0` of `go.opentelemetry.io/otel/semconv`. (#38)
+- Adjust Go version for both `examples/basic` & `examples/multi-services` to `1.18` & `go.opentelemetry.io/otel` to `v1.14.0`. (#38)
+- Change `http.server_name` attributes to `net.host.name`, this is because semconv is removing this attribute for http. (#38)
+
+### Removed
+
+- Remove `http.target` attribute on implementation & tests based on [this comment](https://github.com/open-telemetry/opentelemetry-go/blob/v1.17.0/semconv/internal/v2/http.go#L160-L165). (#39)
+- Drop support for Go `<1.18`. (#38)
+
 ## [0.6.0] - 2024-04-02
 
 ### ⚠️ Notice ⚠️
@@ -118,7 +136,8 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.7.0
 [0.6.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.6.0
 [0.5.2]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.2
 [0.5.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.1
