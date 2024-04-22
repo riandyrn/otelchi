@@ -45,7 +45,6 @@ func TestSDKIntegration(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -56,7 +55,6 @@ func TestSDKIntegration(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -102,7 +100,6 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -113,7 +110,6 @@ func TestSDKIntegrationWithFilters(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -150,7 +146,6 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -161,7 +156,6 @@ func TestSDKIntegrationWithChiRoutes(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -202,7 +196,6 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -213,7 +206,6 @@ func TestSDKIntegrationOverrideSpanName(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -248,7 +240,6 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -259,7 +250,6 @@ func TestSDKIntegrationWithRequestMethodInSpanName(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -298,7 +288,6 @@ func TestSDKIntegrationEmptyHandlerDefaultStatusCode(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/user/123",
 				"/user/{id:[0-9]+}",
 			),
 		},
@@ -309,7 +298,6 @@ func TestSDKIntegrationEmptyHandlerDefaultStatusCode(t *testing.T) {
 				"foobar",
 				http.StatusOK,
 				"GET",
-				"/book/foo",
 				"/book/{title}",
 			),
 		},
@@ -320,7 +308,6 @@ func TestSDKIntegrationEmptyHandlerDefaultStatusCode(t *testing.T) {
 				"foobar",
 				http.StatusNotFound,
 				"GET",
-				"/not-found",
 				"/not-found",
 			),
 		},
@@ -356,7 +343,6 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 				http.StatusOK,
 				"GET",
 				"/",
-				"/",
 			),
 		},
 	})
@@ -385,17 +371,21 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
 
-	require.Len(t, sr.Ended(), 1)
-	assertSpan(t, sr.Ended()[0],
-		"/user/{id:[0-9]+}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
-	)
-	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), sr.Ended()[0].SpanContext().TraceID().String())
+	recordedSpans := sr.Ended()
+	require.Len(t, recordedSpans, 1)
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/{id:[0-9]+}",
+			),
+		},
+	})
+	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), recordedSpans[0].SpanContext().TraceID().String())
 }
 
 func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
@@ -415,16 +405,21 @@ func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, r0)
 
-	require.Len(t, sr.Ended(), 1)
-	assertSpan(t, sr.Ended()[0],
-		"/user/{id:[0-9]+}",
-		trace.SpanKindServer,
-		attribute.String("http.server_name", "foobar"),
-		attribute.Int("http.status_code", http.StatusOK),
-		attribute.String("http.method", "GET"),
-		attribute.String("http.target", "/user/123"),
-		attribute.String("http.route", "/user/{id:[0-9]+}"),
-	)
+	recordedSpans := sr.Ended()
+	require.Len(t, recordedSpans, 1)
+
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/{id:[0-9]+}",
+			),
+		},
+	})
 
 	require.Empty(t, w.Header().Get("X-Trace-ID"))
 }
@@ -471,12 +466,11 @@ type spanValueCheck struct {
 	Attributes []attribute.KeyValue
 }
 
-func getSemanticAttributes(serverName string, httpStatusCode int, httpMethod, httpTarget, httpRoute string) []attribute.KeyValue {
+func getSemanticAttributes(serverName string, httpStatusCode int, httpMethod, httpRoute string) []attribute.KeyValue {
 	return []attribute.KeyValue{
-		attribute.String("http.server_name", serverName),
+		attribute.String("net.host.name", serverName),
 		attribute.Int("http.status_code", httpStatusCode),
 		attribute.String("http.method", httpMethod),
-		attribute.String("http.target", httpTarget),
 		attribute.String("http.route", httpRoute),
 	}
 }
