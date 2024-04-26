@@ -19,7 +19,7 @@ test:
 
 test-build-examples:
 	make test-build-basic-example
-#	make test-build-multi-services-example
+	make test-build-multi-services-example
 
 test-build-basic-example:
 	docker build -f ./examples/basic/Dockerfile .

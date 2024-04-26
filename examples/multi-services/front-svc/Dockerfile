@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine3.14
+FROM golang:1.19-alpine3.18
 WORKDIR /go/src/github.com/riandyrn/otelchi
 
 RUN apk --no-cache add curl
