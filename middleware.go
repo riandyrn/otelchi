@@ -48,6 +48,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			reqMethodInSpanName:    cfg.RequestMethodInSpanName,
 			filter:                 cfg.Filter,
 			traceResponseHeaderKey: cfg.TraceResponseHeaderKey,
+			publicEndpointFn:       cfg.PublicEndpointFn,
 		}
 	}
 }
@@ -61,6 +62,7 @@ type traceware struct {
 	reqMethodInSpanName    bool
 	filter                 func(r *http.Request) bool
 	traceResponseHeaderKey string
+	publicEndpointFn       func(r *http.Request) bool
 }
 
 type recordingResponseWriter struct {
@@ -138,11 +140,30 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	ctx, span := tw.tracer.Start(
-		ctx, spanName,
+	// define span start options
+	spanOpts := []oteltrace.SpanStartOption{
 		oteltrace.WithAttributes(spanAttributes...),
 		oteltrace.WithSpanKind(oteltrace.SpanKindServer),
-	)
+	}
+
+	if tw.publicEndpointFn != nil && tw.publicEndpointFn(r) {
+		// mark span as the root span
+		spanOpts = append(spanOpts, oteltrace.WithNewRoot())
+
+		// linking incoming span context to the root span if possible
+		spanCtx := oteltrace.SpanContextFromContext(ctx)
+		if spanCtx.IsValid() && spanCtx.IsRemote() {
+			spanOpts = append(
+				spanOpts,
+				oteltrace.WithLinks(oteltrace.Link{
+					SpanContext: spanCtx,
+				}),
+			)
+		}
+	}
+
+	// start span
+	ctx, span := tw.tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
 
 	// put trace_id to response header only when WithTraceResponseHeaderKey is used
