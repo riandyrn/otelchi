@@ -106,17 +106,19 @@ func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 //
 // Let say we have the following scenario:
 //
-// 1. You have 2 systems: `SysA` & `SysB`.
-// 2. `SysA` has the following services: `SvcA.1` & `SvcA.2`.
-// 3. `SysB` has the following services: `SvcB.1` & `SvcB.2`.
-// 4. `SvcA.2` is used internally only by `SvcA.1`.
-// 5. `SvcB.2` is used internally only by `SvcB.1`.
-// 6. All of these services already instrumented otelchi & using the same collector (e.g Jaeger).
-// 7. In `SvcA.1` we should set `WithPublicEndpoint()` since it is the entry point (a.k.a "public endpoint") for entering `SysA`.
-// 8. In `SvcA.2` we should not set `WithPublicEndpoint()` since it is only used internally by `SvcA.1` inside `SysA`.
-// 9. Point 7 & 8 also applies to both services in `SysB`.
-// 10. Now, whenever `SvcA.1` calls `SvcA.2` there will be only a single trace generated. This trace will contain 2 spans: root span from `SvcA.1` & child span from `SvcA.2`. This also applies to the services inside `SysB`.
-// 11. But if let say `SvcA.2` calls `SvcB.1`, then there will be 2 traces generated, trace generated from `SysA` & `SysB`. But in trace generated in `SysB` there will be like a marking that this trace is actually related to trace in `SysA` (a.k.a linked with the trace from `SysA`).
+//  1. We have 2 systems: `SysA` & `SysB`.
+//  2. `SysA` has the following services: `SvcA.1` & `SvcA.2`.
+//  3. `SysB` has the following services: `SvcB.1` & `SvcB.2`.
+//  4. `SvcA.2` is used internally only by `SvcA.1`.
+//  5. `SvcB.2` is used internally only by `SvcB.1`.
+//  6. All of these services already instrumented otelchi & using the same collector (e.g Jaeger).
+//  7. In `SvcA.1` we should set `WithPublicEndpoint()` since it is the entry point (a.k.a "public endpoint") for entering `SysA`.
+//  8. In `SvcA.2` we should not set `WithPublicEndpoint()` since it is only used internally by `SvcA.1` inside `SysA`.
+//  9. Point 7 & 8 also applies to both services in `SysB`.
+//
+// Now, whenever `SvcA.1` calls `SvcA.2` there will be only a single trace generated. This trace will contain 2 spans: root span from `SvcA.1` & child span from `SvcA.2`.
+//
+// But if let say `SvcA.2` calls `SvcB.1`, then there will be 2 traces generated: trace from `SysA` & trace from `SysB`. But in trace generated in `SysB` there will be like a marking that this trace is actually related to trace in `SysA` (a.k.a linked with the trace from `SysA`).
 func WithPublicEndpoint() Option {
 	return WithPublicEndpointFn(func(r *http.Request) bool { return true })
 }
@@ -130,7 +132,7 @@ func WithPublicEndpoint() Option {
 // child span of the incoming span context.
 //
 // Essentially it has the same functionality as WithPublicEndpoint but with
-// better configurability.
+// more flexibility.
 func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.PublicEndpointFn = fn
