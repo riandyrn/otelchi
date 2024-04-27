@@ -463,11 +463,100 @@ func TestWithPublicEndpoint(t *testing.T) {
 	require.Len(t, recordedSpans, 1)
 
 	links := recordedSpans[0].Links()
-	require.Len(t, links, 1, "should contain link")
-	require.True(t, remoteSpanCtx.Equal(links[0].SpanContext), "should link incoming span context")
+	require.Len(t, links, 1)
+	require.True(t, remoteSpanCtx.Equal(links[0].SpanContext))
 }
 
-func TestWithPublicEndpointFn(t *testing.T) {}
+func TestWithPublicEndpointFn(t *testing.T) {
+	// prepare remote span context
+	remoteSpanCtx := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID: trace.TraceID{0x01},
+		SpanID:  trace.SpanID{0x01},
+		Remote:  true,
+	})
+
+	// prepare test cases
+	testCases := []struct {
+		Name          string
+		Fn            func(r *http.Request) bool
+		HandlerAssert func(t *testing.T, spanCtx trace.SpanContext)
+		SpansAssert   func(t *testing.T, spanCtx trace.SpanContext, spans []sdktrace.ReadOnlySpan)
+	}{
+		{
+			Name: "Function Always Return True",
+			Fn:   func(r *http.Request) bool { return true },
+			HandlerAssert: func(t *testing.T, spanCtx trace.SpanContext) {
+				// ensure it is not equal to the remote span context
+				require.False(t, spanCtx.Equal(remoteSpanCtx))
+				require.True(t, spanCtx.IsValid())
+
+				// ensure it is not remote span
+				require.False(t, spanCtx.IsRemote())
+			},
+			SpansAssert: func(t *testing.T, spanCtx trace.SpanContext, spans []sdktrace.ReadOnlySpan) {
+				// ensure spans length
+				require.Len(t, spans, 1)
+
+				// ensure the span has been linked
+				links := spans[0].Links()
+				require.Len(t, links, 1)
+				require.True(t, remoteSpanCtx.Equal(links[0].SpanContext))
+			},
+		},
+		{
+			Name: "Function Always Return False",
+			Fn:   func(r *http.Request) bool { return false },
+			HandlerAssert: func(t *testing.T, spanCtx trace.SpanContext) {
+				// ensure the span is child of the remote span
+				require.Equal(t, remoteSpanCtx.TraceID(), spanCtx.TraceID())
+				require.True(t, spanCtx.IsValid())
+
+				// ensure it is not remote span
+				require.False(t, spanCtx.IsRemote())
+			},
+			SpansAssert: func(t *testing.T, spanCtx trace.SpanContext, spans []sdktrace.ReadOnlySpan) {
+				// ensure spans length
+				require.Len(t, spans, 1, "unexpected span length")
+
+				// ensure the span has no links
+				links := spans[0].Links()
+				require.Len(t, links, 0)
+			},
+		},
+	}
+
+	// execute test cases
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+
+			// prepare router and span recorder
+			router, spanRecorder := newSDKTestRouter(
+				"foobar",
+				true,
+				otelchi.WithPublicEndpointFn(testCase.Fn),
+			)
+
+			// prepare http request & inject remote span context into it
+			endpointURL := "/with/public/endpoint"
+			req := httptest.NewRequest(http.MethodGet, endpointURL, nil)
+			ctx := trace.ContextWithSpanContext(context.Background(), remoteSpanCtx)
+			(propagation.TraceContext{}).Inject(ctx, propagation.HeaderCarrier(req.Header))
+
+			// configure router handler
+			router.HandleFunc(endpointURL, func(w http.ResponseWriter, r *http.Request) {
+				// assert handler
+				span := trace.SpanFromContext(r.Context())
+				testCase.HandlerAssert(t, span.SpanContext())
+			})
+
+			// execute http request
+			executeRequests(router, []*http.Request{req})
+
+			// assert recorded spans
+			testCase.SpansAssert(t, remoteSpanCtx, spanRecorder.Ended())
+		})
+	}
+}
 
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
@@ -491,7 +580,13 @@ func ok(w http.ResponseWriter, _ *http.Request) {
 
 func newSDKTestRouter(serverName string, withChiRoutes bool, opts ...otelchi.Option) (*chi.Mux, *tracetest.SpanRecorder) {
 	spanRecorder := tracetest.NewSpanRecorder()
-	tracerProvider := sdktrace.NewTracerProvider()
+	tracerProvider := sdktrace.NewTracerProvider(
+		// set the tracer provider to always sample trace, this is important
+		// because if we don't set this, sometimes there are traces that
+		// won't be sampled (recorded), so we need to set this option
+		// to ensure every trace in this test is recorded.
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
 	tracerProvider.RegisterSpanProcessor(spanRecorder)
 
 	opts = append(opts, otelchi.WithTracerProvider(tracerProvider))
