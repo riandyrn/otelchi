@@ -351,21 +351,17 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 }
 
 func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
-	sr := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider()
-	provider.RegisterSpanProcessor(sr)
-
-	// Define a function inline that transforms the default header name to a custom header name
+	// Define a function inline that transforms the default
+	// header name to a custom header name
 	customHeaderKeyFunc := func() string {
 		return "X-Custom-Trace-ID"
 	}
 
-	router := chi.NewRouter()
-	router.Use(otelchi.Middleware(
+	router, sr := newSDKTestRouter(
 		"foobar",
-		otelchi.WithTracerProvider(provider),
+		true,
 		otelchi.WithTraceIDResponseHeader(customHeaderKeyFunc),
-	))
+	)
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
@@ -391,15 +387,8 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 }
 
 func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
-	sr := tracetest.NewSpanRecorder()
-	provider := sdktrace.NewTracerProvider()
-	provider.RegisterSpanProcessor(sr)
+	router, sr := newSDKTestRouter("foobar", true)
 
-	router := chi.NewRouter()
-	router.Use(otelchi.Middleware(
-		"foobar",
-		otelchi.WithTracerProvider(provider),
-	))
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 	router.HandleFunc("/book/{title}", ok)
 
