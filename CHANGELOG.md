@@ -8,6 +8,27 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] - 2024-04-28
+
+### ⚠️ Notice ⚠️
+
+This release is the last to support Go `1.19`. The next release will require at least Go `1.20`.
+
+### Changed
+
+- Upgrade to `v1.24.0` of `go.opentelemetry.io/otel`. ([#41])(https://github.com/riandyrn/otelchi/pull/41)
+- Upgrade to `v1.20.0` of `go.opentelemetry.io/otel/semconv`. ([#41])(https://github.com/riandyrn/otelchi/pull/41)
+- Adjust Go version for both `examples/basic` & `examples/multi-services` to `1.19` & `go.opentelemetry.io/otel` to `v1.24.0`. ([#41])(https://github.com/riandyrn/otelchi/pull/41)
+- Update otelhttp version to `0.49.0` since it is the version that uses otel `1.24.0` internally, check [here](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/net/http/otelhttp/go.mod#L8) for details. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
+- Set the go versions in compatibility-test.yml to 1.19, 1.20, & 1.21. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
+- Set the sampling strategy to always sample in test cases to avoid random error. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
+- Add `WithPublicEndpoint` & `WithPublicEndpointFn` options. ([#43])(https://github.com/riandyrn/otelchi/pull/43)
+
+### Removed
+
+- Remove the deprecated Jaeger exporter from `multi-services example` & use `otlptrace exporter` instead.
+- Drop support for Go `<1.19`. (#38)
+
 ## [0.7.0] - 2024-04-22
 
 ### ⚠️ Notice ⚠️
@@ -136,7 +157,8 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.8.0
 [0.7.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.7.0
 [0.6.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.6.0
 [0.5.2]: https://github.com/riandyrn/otelchi/releases/tag/v0.5.2
