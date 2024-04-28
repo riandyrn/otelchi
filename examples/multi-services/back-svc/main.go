@@ -6,7 +6,6 @@ import (
 	"log"
 	"math/rand"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,14 +15,13 @@ import (
 )
 
 const (
-	envKeyJaegerEndpointURL = "JAEGER_ENDPOINT_URL"
-	addr                    = ":8091"
-	serviceName             = "back-svc"
+	addr        = ":8091"
+	serviceName = "back-svc"
 )
 
 func main() {
 	// init tracer provider
-	tracer, err := utils.NewTracer(serviceName, os.Getenv(envKeyJaegerEndpointURL))
+	tracer, err := utils.NewTracer(serviceName)
 	if err != nil {
 		log.Fatalf("unable to initialize tracer provider due: %v", err)
 	}

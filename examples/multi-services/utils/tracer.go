@@ -1,10 +1,12 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -12,9 +14,15 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-func NewTracer(svcName, jaegerEndpoint string) (trace.Tracer, error) {
-	// create jaeger exporter
-	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerEndpoint)))
+func NewTracer(svcName string) (trace.Tracer, error) {
+	// create otlp exporter, notice that here we are using insecure option
+	// because we just want to export the trace locally, also notice that
+	// here we don't set any endpoint because by default the otel will load
+	// the endpoint from the environment variable `OTEL_EXPORTER_OTLP_ENDPOINT`
+	exporter, err := otlptrace.New(
+		context.Background(),
+		otlptracehttp.NewClient(otlptracehttp.WithInsecure()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to initialize exporter due: %w", err)
 	}
