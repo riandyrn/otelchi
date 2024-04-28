@@ -26,6 +26,7 @@ This release is the last to support Go `1.19`. The next release will require at 
 - Update otelhttp version to `0.49.0` since it is the version that uses otel `1.24.0` internally, check [here](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/net/http/otelhttp/go.mod#L8) for details. (https://github.com/riandyrn/otelchi/pull/42)
 - Set the go versions in compatibility-test.yml to 1.19, 1.20, & 1.21. (https://github.com/riandyrn/otelchi/pull/42)
 - Set the sampling strategy to always sample in test cases to avoid random error. (https://github.com/riandyrn/otelchi/pull/42)
+- Use `otlptrace exporter` instead of `Jaeger Exporter`. (https://github.com/riandyrn/otelchi/pull/42)
 
 ### Removed
 
