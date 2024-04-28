@@ -150,7 +150,12 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// mark span as the root span
 		spanOpts = append(spanOpts, oteltrace.WithNewRoot())
 
-		// linking incoming span context to the root span if possible
+		// linking incoming span context to the root span, we need to
+		// ensure if the incoming span context is valid (because it is
+		// possible for us to receive invalid span context due to various
+		// reason such as bug or context propagation error) and it is
+		// coming from another service (remote) before linking it to the
+		// root span
 		spanCtx := oteltrace.SpanContextFromContext(ctx)
 		if spanCtx.IsValid() && spanCtx.IsRemote() {
 			spanOpts = append(
