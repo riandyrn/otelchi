@@ -12,26 +12,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### ⚠️ Notice ⚠️
 
-This release is the last to support Go `1.19`. The next release will require at least Go `1.20`.
+This release is the last to support Go `1.19`. The next release will require at least Go `1.21`.
 
 ### Added
 
-- Add `WithPublicEndpoint` & `WithPublicEndpointFn` options. (https://github.com/riandyrn/otelchi/pull/43)
+- Add `WithPublicEndpoint` & `WithPublicEndpointFn` options. (#43)
 
 ### Changed
 
-- Upgrade to `v1.24.0` of `go.opentelemetry.io/otel`. (https://github.com/riandyrn/otelchi/pull/41)
-- Upgrade to `v1.20.0` of `go.opentelemetry.io/otel/semconv`. (https://github.com/riandyrn/otelchi/pull/41)
-- Adjust Go version for both `examples/basic` & `examples/multi-services` to `1.19` & `go.opentelemetry.io/otel` to `v1.24.0`. (https://github.com/riandyrn/otelchi/pull/41)
-- Update otelhttp version to `0.49.0` since it is the version that uses otel `1.24.0` internally, check [here](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/net/http/otelhttp/go.mod#L8) for details. (https://github.com/riandyrn/otelchi/pull/42)
-- Set the go versions in compatibility-test.yml to 1.19, 1.20, & 1.21. (https://github.com/riandyrn/otelchi/pull/42)
-- Set the sampling strategy to always sample in test cases to avoid random error. (https://github.com/riandyrn/otelchi/pull/42)
-- Use `otlptrace exporter` instead of `Jaeger Exporter`. (https://github.com/riandyrn/otelchi/pull/42)
+- Upgrade to `v1.24.0` of `go.opentelemetry.io/otel`. (#41)
+- Upgrade to `v1.20.0` of `go.opentelemetry.io/otel/semconv`. (#41)
+- Adjust Go version for both `examples/basic` & `examples/multi-services` to `1.19` & `go.opentelemetry.io/otel` to `v1.24.0`. (#41)
+- Update otelhttp version to `0.49.0` since it is the version that uses otel `1.24.0` internally, check [here](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/net/http/otelhttp/go.mod#L8) for details. (#42)
+- Set the go versions in compatibility-test.yml to 1.19, 1.20, & 1.21. (#42)
+- Set the sampling strategy to always sample in test cases to avoid random error. (#42)
+- Use `otlptrace` exporter instead of `jaeger` exporter in `examples/multi-services`. (#42)
 
 ### Removed
 
-- Remove the deprecated Jaeger exporter from `multi-services example` & use `otlptrace exporter` instead. (https://github.com/riandyrn/otelchi/pull/42)
-- Drop support for Go `<1.19`. (https://github.com/riandyrn/otelchi/pull/41)
+- Remove the deprecated `jaeger` exporter from `examples/multi-services` & use `otlptrace` exporters instead. (#42)
+- Drop support for Go `<1.19`. (#41)
 
 ## [0.7.0] - 2024-04-22
 
