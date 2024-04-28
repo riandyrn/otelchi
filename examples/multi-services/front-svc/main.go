@@ -17,15 +17,14 @@ import (
 )
 
 const (
-	envKeyBackServiceURL    = "BACK_SERVICE_URL"
-	envKeyJaegerEndpointURL = "JAEGER_ENDPOINT_URL"
-	addr                    = ":8090"
-	serviceName             = "front-svc"
+	envKeyBackServiceURL = "BACK_SERVICE_URL"
+	addr                 = ":8090"
+	serviceName          = "front-svc"
 )
 
 func main() {
 	// initialize tracer
-	tracer, err := utils.NewTracer(serviceName, os.Getenv(envKeyJaegerEndpointURL))
+	tracer, err := utils.NewTracer(serviceName)
 	if err != nil {
 		log.Fatalf("unable to initialize tracer due: %v", err)
 	}
