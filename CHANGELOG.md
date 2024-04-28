@@ -14,6 +14,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 This release is the last to support Go `1.19`. The next release will require at least Go `1.20`.
 
+### Added
+
+- Add `WithPublicEndpoint` & `WithPublicEndpointFn` options. ([#43])(https://github.com/riandyrn/otelchi/pull/43)
+
 ### Changed
 
 - Upgrade to `v1.24.0` of `go.opentelemetry.io/otel`. ([#41])(https://github.com/riandyrn/otelchi/pull/41)
@@ -22,7 +26,6 @@ This release is the last to support Go `1.19`. The next release will require at 
 - Update otelhttp version to `0.49.0` since it is the version that uses otel `1.24.0` internally, check [here](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/net/http/otelhttp/go.mod#L8) for details. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
 - Set the go versions in compatibility-test.yml to 1.19, 1.20, & 1.21. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
 - Set the sampling strategy to always sample in test cases to avoid random error. ([#42])(https://github.com/riandyrn/otelchi/pull/42)
-- Add `WithPublicEndpoint` & `WithPublicEndpointFn` options. ([#43])(https://github.com/riandyrn/otelchi/pull/43)
 
 ### Removed
 
