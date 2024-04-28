@@ -102,7 +102,7 @@ This release is the last to support Go `1.15`. The next release will require at 
 
 ### Added
 
-- Add Option `WithRequestMethodInSpanName()` to handle vendor that do not include HTTP request method as mentioned in #6. ([#7])
+- Add Option `WithRequestMethodInSpanName()` to handle vendor that do not include HTTP request method as mentioned in [#6]. ([#7])
 - Refine description for `WithChiRoutes()` option to announce it is possible to override the span name in underlying handler with this option.
 
 ### Changed
@@ -176,6 +176,7 @@ It contains instrumentation for trace and depends on:
 [#11]: https://github.com/riandyrn/otelchi/pull/11
 [#9]: https://github.com/riandyrn/otelchi/pull/9
 [#7]: https://github.com/riandyrn/otelchi/pull/7
+[#6]: https://github.com/riandyrn/otelchi/pull/6
 [#5]: https://github.com/riandyrn/otelchi/pull/5
 [#2]: https://github.com/riandyrn/otelchi/pull/2
 [#1]: https://github.com/riandyrn/otelchi/pull/1
