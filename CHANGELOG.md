@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Adjust `WithFilter` option to accept multiple functions. ([#47])
+
 ## [0.8.0] - 2024-04-29
 
 ### ⚠️ Notice ⚠️
@@ -161,6 +165,7 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
+[#47]: https://github.com/riandyrn/otelchi/pull/47
 [#43]: https://github.com/riandyrn/otelchi/pull/43
 [#42]: https://github.com/riandyrn/otelchi/pull/42
 [#41]: https://github.com/riandyrn/otelchi/pull/41
