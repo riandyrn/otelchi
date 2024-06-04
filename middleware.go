@@ -1,6 +1,7 @@
 package otelchi
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -179,6 +180,8 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// get recording response writer
 	rrw := getRRW(w)
 	defer putRRW(rrw)
+
+	ctx = context.WithValue(ctx, "traceID", span.SpanContext().TraceID().String())
 
 	// execute next http handler
 	r = r.WithContext(ctx)
