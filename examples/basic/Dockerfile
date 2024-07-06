@@ -1,4 +1,4 @@
-FROM golang:1.19-alpine3.18
+FROM golang:1.21-alpine3.20
 
 WORKDIR /go/src/github.com/riandyrn/otelchi
 COPY . .
