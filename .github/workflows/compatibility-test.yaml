@@ -1,6 +1,13 @@
 name: compatibility-test
 
 on:
+  push:
+    paths-ignore:
+      - "**.md"
+      - LICENCE
+      - CODEOWNERS
+    branches:
+      - master
   pull_request_review:
     types: [submitted]
 
