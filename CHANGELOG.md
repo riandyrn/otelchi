@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- Adjust `WithFilter` option to accept multiple functions. ([#47])
+- `WithFilter` option now support multiple filter functions, just like in [otelmux](https://github.com/open-telemetry/opentelemetry-go-contrib/blob/v1.24.0/instrumentation/github.com/gorilla/mux/otelmux/config.go#L106-L110). ([#47])
 
 ## [0.8.0] - 2024-04-29
 

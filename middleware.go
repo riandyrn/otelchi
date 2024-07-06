@@ -111,8 +111,10 @@ func putRRW(rrw *recordingResponseWriter) {
 // ServeHTTP implements the http.Handler interface. It does the actual
 // tracing of the request.
 func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// go through all filters if any
 	for _, filter := range tw.filters {
-		// simply pass through to the handler if filter returns false
+		// if there is a filter that returns false, we skip tracing
+		// and execute next handler
 		if !filter(r) {
 			tw.handler.ServeHTTP(w, r)
 			return

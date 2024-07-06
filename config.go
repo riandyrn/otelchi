@@ -33,7 +33,7 @@ func (o optionFunc) apply(c *config) {
 }
 
 // Filter is a predicate used to determine whether a given http.request should
-// be traced.
+// be traced. A Filter must return true if the request should be traced.
 type Filter func(*http.Request) bool
 
 // WithPropagators specifies propagators to use for extracting
@@ -80,10 +80,12 @@ func WithRequestMethodInSpanName(isActive bool) Option {
 	})
 }
 
-// WithFilter is used for filtering request that should not be traced.
-// This is useful for filtering health check request, etc.
-// A Filter must return true if the request should be traced.
+// WithFilter adds a filter to the list of filters used by the handler.
+// If any filter indicates to exclude a request then the request will not be
+// traced. All filters must allow a request to be traced for a Span to be created.
 // If no filters are provided then all requests are traced.
+// Filters will be invoked for each processed request, it is advised to make them
+// simple and fast.
 func WithFilter(filter Filter) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.Filters = append(cfg.Filters, filter)
