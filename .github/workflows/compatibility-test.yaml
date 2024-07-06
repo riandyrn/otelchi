@@ -13,7 +13,9 @@ on:
 
 jobs:
   compatibility-test:
-    if: github.event.review.state == 'APPROVED'
+    # we trigger the job only when the PR is approved or the job is triggered by other events
+    # defined in the on section
+    if: github.event.review.state == 'APPROVED' || github.event_name != 'pull_request_review'
     strategy:
       matrix:
         go-version: ["1.21", "1.22"]
