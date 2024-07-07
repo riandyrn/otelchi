@@ -1,14 +1,11 @@
-name: ci
+name: quick-test
 
 on:
-  push:
+  pull_request:
     paths-ignore:
       - "**.md"
       - LICENCE
       - CODEOWNERS
-    branches:
-      - master
-  pull_request:
 
 jobs:
   test-build:
