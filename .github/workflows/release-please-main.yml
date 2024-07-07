@@ -1,0 +1,19 @@
+on:
+  push:
+    branches:
+      - master
+
+name: release-please
+jobs:
+  release-please:
+    runs-on: ktbs-small-runner
+    steps:
+      - uses: google-github-actions/release-please-action@v3
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          release-type: go
+          draft-pull-request: "true"
+          labels: "be-autorelease-pending"
+          release-labels: "be-autorelease-tagged"
+
+

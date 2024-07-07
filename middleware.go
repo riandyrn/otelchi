@@ -181,7 +181,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rrw := getRRW(w)
 	defer putRRW(rrw)
 
-	ctx = context.WithValue(ctx, "traceID", span.SpanContext().TraceID().String())
+	ctx = context.WithValue(ctx, "trace-id", span.SpanContext().TraceID().String())
 
 	// execute next http handler
 	r = r.WithContext(ctx)
