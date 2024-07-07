@@ -6,7 +6,7 @@ on:
 name: release-please
 jobs:
   release-please:
-    runs-on: ktbs-small-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: google-github-actions/release-please-action@v3
         with:
