@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: google-github-actions/release-please-action@v3
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           release-type: go
           draft-pull-request: "true"
           labels: "be-autorelease-pending"
