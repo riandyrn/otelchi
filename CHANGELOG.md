@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/kitabisa/otelchi/compare/v1.0.0...v1.1.0) (2024-07-07)
+
+
+### Features
+
+* renamed to trace-id ([edd5dd9](https://github.com/kitabisa/otelchi/commit/edd5dd97f9db6840811618810e7ded3973be23ed))
+
 ## [Unreleased]
 
 ## [0.8.0] - 2024-04-29
