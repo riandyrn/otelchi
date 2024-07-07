@@ -1,15 +1,24 @@
 name: compatibility-test
 
 on:
+  push:
+    paths-ignore:
+      - "**.md"
+      - LICENCE
+      - CODEOWNERS
+    branches:
+      - master
   pull_request_review:
     types: [submitted]
 
 jobs:
   compatibility-test:
-    if: github.event.review.state == 'APPROVED'
+    # we trigger the job only when the PR is approved or the job is triggered by other events
+    # defined in the on section
+    if: github.event.review.state == 'APPROVED' || github.event_name != 'pull_request_review'
     strategy:
       matrix:
-        go-version: ["1.19", "1.20", "1.21"]
+        go-version: ["1.21", "1.22"]
         os: [ubuntu-latest, macos-latest, windows-latest]
         # GitHub Actions does not support arm* architectures on default
         # runners. It is possible to acomplish this with a self-hosted runner

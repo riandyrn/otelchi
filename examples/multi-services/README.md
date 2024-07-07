@@ -1,11 +1,11 @@
 # Multi Services Example
 
-This is simple example on how instrumenting multiple services.
+This is a simple example of how instrumenting multiple services.
 
 There are 2 services in this example:
 
-- `front-svc` => the front service receiving request from client
-- `back-svc` => the service that being called by `front-svc` (hence named `back`)
+- `front-svc` => the front service receiving requests from the client
+- `back-svc` => the service that is being called by `front-svc` (hence named `back`)
 
 ![Architecture Diagram](architecture.svg)
 
@@ -19,7 +19,7 @@ Make sure to have Docker & Docker Compose installed in your system. After that r
 > make run
 ```
 
-If the command run successfully (it will take a moment), you will see something like this in the terminal:
+If the command runs successfully (it will take a moment), you will see something like this in the terminal:
 
 ```
 back-svc_1   | 2022/07/23 01:49:29 back service is listening on :8091

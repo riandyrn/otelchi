@@ -63,59 +63,107 @@ func TestSDKIntegration(t *testing.T) {
 	})
 }
 
-func TestSDKIntegrationWithFilters(t *testing.T) {
-	// prepare router and span recorder
-	router, sr := newSDKTestRouter("foobar", false, otelchi.WithFilter(func(r *http.Request) bool {
-		// if client access /live or /ready, there should be no span
-		if r.URL.Path == "/live" || r.URL.Path == "/ready" {
-			return false
-		}
-
-		// otherwise always return the span
-		return true
-	}))
-
-	// define router
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-	router.HandleFunc("/health", ok)
-	router.HandleFunc("/ready", ok)
-
-	// execute requests
-	executeRequests(router, []*http.Request{
-		httptest.NewRequest("GET", "/user/123", nil),
-		httptest.NewRequest("GET", "/book/foo", nil),
-		httptest.NewRequest("GET", "/live", nil),
-		httptest.NewRequest("GET", "/ready", nil),
-	})
-
-	// get recorded spans and ensure the length is 2
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 2)
-
-	// ensure span values
-	checkSpans(t, recordedSpans, []spanValueCheck{
+func TestSDKIntegrationWithFilter(t *testing.T) {
+	// prepare test cases
+	serviceName := "foobar"
+	testCases := []struct {
+		Name               string
+		FilterFn           []otelchi.Filter
+		LenSpans           int
+		ExpectedRouteNames []string
+	}{
 		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
+			Name: "One WithFilter",
+			FilterFn: []otelchi.Filter{
+				func(r *http.Request) bool {
+					return r.URL.Path != "/live" && r.URL.Path != "/ready"
+				},
+			},
+			LenSpans:           2,
+			ExpectedRouteNames: []string{"/user/{id:[0-9]+}", "/book/{title}"},
 		},
 		{
-			Name: "/book/{title}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/book/{title}",
-			),
+			Name: "Multiple WithFilter",
+			FilterFn: []otelchi.Filter{
+				func(r *http.Request) bool {
+					return r.URL.Path != "/ready"
+				},
+				func(r *http.Request) bool {
+					return r.URL.Path != "/live"
+				},
+			},
+			LenSpans:           2,
+			ExpectedRouteNames: []string{"/user/{id:[0-9]+}", "/book/{title}"},
 		},
-	})
+		{
+			Name: "All Routes are traced",
+			FilterFn: []otelchi.Filter{
+				func(r *http.Request) bool {
+					return true
+				},
+			},
+			LenSpans:           4,
+			ExpectedRouteNames: []string{"/user/{id:[0-9]+}", "/book/{title}", "/live", "/ready"},
+		},
+		{
+			Name: "All Routes are not traced",
+			FilterFn: []otelchi.Filter{
+				func(r *http.Request) bool {
+					return false
+				},
+			},
+			LenSpans:           0,
+			ExpectedRouteNames: []string{},
+		},
+	}
+
+	// execute test cases
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			// prepare router and span recorder
+			filters := []otelchi.Option{}
+			for _, filter := range testCase.FilterFn {
+				filters = append(filters, otelchi.WithFilter(filter))
+			}
+			router, sr := newSDKTestRouter(serviceName, false, filters...)
+
+			// define router
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+			router.HandleFunc("/health", ok)
+			router.HandleFunc("/live", ok)
+			router.HandleFunc("/ready", ok)
+
+			// execute requests
+			executeRequests(router, []*http.Request{
+				httptest.NewRequest("GET", "/user/123", nil),
+				httptest.NewRequest("GET", "/book/foo", nil),
+				httptest.NewRequest("GET", "/live", nil),
+				httptest.NewRequest("GET", "/ready", nil),
+			})
+
+			// check recorded spans
+			recordedSpans := sr.Ended()
+			require.Len(t, recordedSpans, testCase.LenSpans)
+
+			// ensure span values
+			spanValues := []spanValueCheck{}
+			for _, routeName := range testCase.ExpectedRouteNames {
+				spanValues = append(spanValues, spanValueCheck{
+					Name: routeName,
+					Kind: trace.SpanKindServer,
+					Attributes: getSemanticAttributes(
+						serviceName,
+						http.StatusOK,
+						"GET",
+						routeName,
+					),
+				})
+			}
+			checkSpans(t, recordedSpans, spanValues)
+		})
+	}
+
 }
 
 func TestSDKIntegrationWithChiRoutes(t *testing.T) {
