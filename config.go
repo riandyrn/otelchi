@@ -8,21 +8,17 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-const (
-	defaultTraceIDResponseHeaderKey      = "X-Trace-Id"
-	defaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
-)
+const defaultTraceResponseHeaderKey = "X-Trace-Id"
 
 // config is used to configure the mux middleware.
 type config struct {
-	TracerProvider           oteltrace.TracerProvider
-	Propagators              propagation.TextMapPropagator
-	ChiRoutes                chi.Routes
-	RequestMethodInSpanName  bool
-	Filters                  []Filter
-	TraceIDResponseHeaderKey string
-	TraceSampledResponseKey  string
-	PublicEndpointFn         func(r *http.Request) bool
+	TracerProvider          oteltrace.TracerProvider
+	Propagators             propagation.TextMapPropagator
+	ChiRoutes               chi.Routes
+	RequestMethodInSpanName bool
+	Filters                 []Filter
+	TraceResponseHeaderKey  string
+	PublicEndpointFn        func(r *http.Request) bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -36,7 +32,7 @@ func (o optionFunc) apply(c *config) {
 	o(c)
 }
 
-// Filter is a predicate used to determine whether a given [http.Request] should
+// Filter is a predicate used to determine whether a given http.request should
 // be traced. A Filter must return true if the request should be traced.
 type Filter func(*http.Request) bool
 
@@ -102,9 +98,9 @@ func WithFilter(filter Filter) Option {
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return optionFunc(func(cfg *config) {
 		if headerKeyFunc == nil {
-			cfg.TraceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey // use default trace header
+			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // use default trace header
 		} else {
-			cfg.TraceIDResponseHeaderKey = headerKeyFunc()
+			cfg.TraceResponseHeaderKey = headerKeyFunc()
 		}
 	})
 }
@@ -142,7 +138,7 @@ func WithPublicEndpoint() Option {
 // incoming span context. Otherwise, the generated span will be set as the
 // child span of the incoming span context.
 //
-// Essentially it has the same functionality as [WithPublicEndpoint] but with
+// Essentially it has the same functionality as WithPublicEndpoint but with
 // more flexibility.
 func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
