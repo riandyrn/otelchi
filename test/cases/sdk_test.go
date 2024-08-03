@@ -17,6 +17,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var traceID trace.TraceID = [16]byte{1}
+
+var spanCtxSampled = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID:    traceID,
+	TraceFlags: trace.FlagsSampled,
+})
+
+var spanCtxNotSampled = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID: traceID,
+})
+
 func TestSDKIntegration(t *testing.T) {
 	// prepare router and span recorder
 	router, sr := newSDKTestRouter("foobar", false)
@@ -616,16 +627,6 @@ func TestWithPublicEndpointFn(t *testing.T) {
 }
 
 func TestSDKIntegrationResponseModifierTraceIDResponseHeader(t *testing.T) {
-	var traceID trace.TraceID = [16]byte{1}
-
-	spanCtxSampled := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID:    traceID,
-		TraceFlags: trace.FlagsSampled,
-	})
-
-	spanCtxNotSampled := trace.NewSpanContext(trace.SpanContextConfig{
-		TraceID: traceID,
-	})
 
 	testCases := []struct {
 		Name           string
@@ -736,6 +737,67 @@ func TestSDKIntegrationResponseModifierTraceIDResponseHeader(t *testing.T) {
 
 			// check if the expected value is correct
 			require.Equal(t, testCase.ExpHeaderValue, w.Header().Get(testCase.ExpHeaderName))
+		})
+	}
+}
+
+func TestSDKIntegrationWithResponseModifier(t *testing.T) {
+	// In this test case we will exercise the response modifier feature
+	// to simulate use case mentioned in this PR: https://github.com/riandyrn/otelchi/pull/56
+	// which essentially don't add trace id to response header if the trace is not sampled.
+
+	// define response modifier
+	headerKey := otelchi.DefaultTraceResponseHeaderKey
+	respMod := func(ctx context.Context, w http.ResponseWriter) {
+		spanCtx := trace.SpanFromContext(ctx).SpanContext()
+		if spanCtx.IsSampled() {
+			w.Header().Set(headerKey, spanCtx.TraceID().String())
+		}
+	}
+
+	// define router, here we are using global tracer provider
+	// which provides "pass through" spans for any span context in the
+	// incoming request context.
+	router := chi.NewRouter()
+	router.Use(
+		otelchi.Middleware(
+			"foobar",
+			otelchi.WithChiRoutes(router),
+			otelchi.WithResponseModifier(respMod),
+		),
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+
+	// execute test cases
+	testCases := []struct {
+		Name            string
+		SpanContext     trace.SpanContext
+		ExpHeaderExists bool
+	}{
+		{
+			Name:            "Trace Sampled",
+			SpanContext:     spanCtxSampled,
+			ExpHeaderExists: true,
+		},
+		{
+			Name:            "Trace Not Sampled",
+			SpanContext:     spanCtxNotSampled,
+			ExpHeaderExists: false,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			r0 = r0.WithContext(trace.ContextWithSpanContext(context.Background(), testCase.SpanContext))
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			if testCase.ExpHeaderExists {
+				require.NotEmpty(t, w.Header().Get(headerKey))
+			} else {
+				require.Empty(t, w.Header().Get(headerKey))
+			}
 		})
 	}
 }
