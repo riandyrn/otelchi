@@ -398,40 +398,60 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 	})
 }
 
-func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
-	// Define a function inline that transforms the default
-	// header name to a custom header name
-	customHeaderKeyFunc := func() string {
-		return "X-Custom-Trace-ID"
-	}
-
-	router, sr := newSDKTestRouter(
-		"foobar",
-		true,
-		otelchi.WithTraceIDResponseHeader(customHeaderKeyFunc),
-	)
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-	checkSpans(t, recordedSpans, []spanValueCheck{
+func TestSDKIntegrationWithTraceIDResponseHeader(t *testing.T) {
+	testCases := []struct {
+		Name          string
+		HeaderKeyFunc func() string
+		ExpHeaderName string
+	}{
 		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
+			Name:          "With Default Header Key",
+			HeaderKeyFunc: nil,
+			ExpHeaderName: otelchi.DefaultTraceResponseHeaderKey,
 		},
-	})
-	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), recordedSpans[0].SpanContext().TraceID().String())
+		{
+			Name:          "With Custom Header Key",
+			HeaderKeyFunc: func() string { return "X-Custom-Trace-ID" },
+			ExpHeaderName: "X-Custom-Trace-ID",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			router, sr := newSDKTestRouter(
+				"foobar",
+				true,
+				otelchi.WithTraceIDResponseHeader(testCase.HeaderKeyFunc),
+			)
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			recordedSpans := sr.Ended()
+			require.Len(t, recordedSpans, 1)
+			checkSpans(t, recordedSpans, []spanValueCheck{
+				{
+					Name: "/user/{id:[0-9]+}",
+					Kind: trace.SpanKindServer,
+					Attributes: getSemanticAttributes(
+						"foobar",
+						http.StatusOK,
+						"GET",
+						"/user/{id:[0-9]+}",
+					),
+				},
+			})
+			require.Equalf(
+				t,
+				recordedSpans[0].SpanContext().TraceID().String(),
+				w.Header().Get(testCase.ExpHeaderName),
+				"the expected header key: `%v` is not found in the response header",
+				testCase.ExpHeaderName,
+			)
+		})
+	}
 }
 
 func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
