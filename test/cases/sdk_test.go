@@ -454,7 +454,7 @@ func TestSDKIntegrationWithTraceIDResponseHeader(t *testing.T) {
 	}
 }
 
-func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
+func TestSDKIntegrationWithoutWithTraceIDResponseHeader(t *testing.T) {
 	router, sr := newSDKTestRouter("foobar", true)
 
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
@@ -480,7 +480,7 @@ func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
 		},
 	})
 
-	require.Empty(t, w.Header().Get("X-Trace-ID"))
+	require.Empty(t, w.Header().Get(otelchi.DefaultTraceResponseHeaderKey))
 }
 
 func TestWithPublicEndpoint(t *testing.T) {
