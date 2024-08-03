@@ -1,6 +1,7 @@
 package otelchi
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -17,8 +18,8 @@ type config struct {
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
 	Filters                 []Filter
-	TraceResponseHeaderKey  string
 	PublicEndpointFn        func(r *http.Request) bool
+	ResponseModifiers       []ResponseModifier
 }
 
 // Option specifies instrumentation configuration options.
@@ -96,13 +97,9 @@ func WithFilter(filter Filter) Option {
 // It accepts a function that generates the header key name. If this parameter
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
-	return optionFunc(func(cfg *config) {
-		if headerKeyFunc == nil {
-			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // use default trace header
-		} else {
-			cfg.TraceResponseHeaderKey = headerKeyFunc()
-		}
-	})
+	return WithResponseModifier(
+		ResponseModifierTraceIDResponseHeader(headerKeyFunc),
+	)
 }
 
 // WithPublicEndpoint is used for marking every endpoint as public endpoint.
@@ -144,4 +141,39 @@ func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.PublicEndpointFn = fn
 	})
+}
+
+// ResponseModifier is a function that allow modification to the response before
+// being passed to the underlying handler.
+type ResponseModifier func(ctx context.Context, w http.ResponseWriter)
+
+// WithResponseModifier adds a response modifier to the list of response modifiers.
+//
+// Each modifiers will be invoked before executing the underlying handler. So every
+// modification done by the modifiers will be passed to the underlying handler.
+func WithResponseModifier(modFunc ResponseModifier) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.ResponseModifiers = append(cfg.ResponseModifiers, modFunc)
+	})
+}
+
+// ResponseModifierTraceIDResponseHeader is a response modifier that sets the trace id
+// into response header. Please note that even though the trace is not sampled, the trace
+// id will be still set into the response header. If this behavior is not desirable you
+// can create your own response modifier.
+func ResponseModifierTraceIDResponseHeader(headerKeyFunc func() string) ResponseModifier {
+	return func(ctx context.Context, w http.ResponseWriter) {
+		// set the response header key
+		headerKey := defaultTraceResponseHeaderKey
+		if headerKeyFunc != nil {
+			headerKey = headerKeyFunc()
+		}
+
+		// set the trace id into response header, please note that even though the trace
+		// is not sampled, its id will be still set into the response header. If this
+		// behavior is not desirable you can create your own response modifier.
+		if span := oteltrace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
+			w.Header().Set(headerKey, span.SpanContext().TraceID().String())
+		}
+	}
 }

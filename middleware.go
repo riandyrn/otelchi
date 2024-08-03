@@ -40,29 +40,29 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 
 	return func(handler http.Handler) http.Handler {
 		return traceware{
-			serverName:             serverName,
-			tracer:                 tracer,
-			propagators:            cfg.Propagators,
-			handler:                handler,
-			chiRoutes:              cfg.ChiRoutes,
-			reqMethodInSpanName:    cfg.RequestMethodInSpanName,
-			filters:                cfg.Filters,
-			traceResponseHeaderKey: cfg.TraceResponseHeaderKey,
-			publicEndpointFn:       cfg.PublicEndpointFn,
+			serverName:          serverName,
+			tracer:              tracer,
+			propagators:         cfg.Propagators,
+			handler:             handler,
+			chiRoutes:           cfg.ChiRoutes,
+			reqMethodInSpanName: cfg.RequestMethodInSpanName,
+			filters:             cfg.Filters,
+			publicEndpointFn:    cfg.PublicEndpointFn,
+			respModifiers:       cfg.ResponseModifiers,
 		}
 	}
 }
 
 type traceware struct {
-	serverName             string
-	tracer                 oteltrace.Tracer
-	propagators            propagation.TextMapPropagator
-	handler                http.Handler
-	chiRoutes              chi.Routes
-	reqMethodInSpanName    bool
-	filters                []Filter
-	traceResponseHeaderKey string
-	publicEndpointFn       func(r *http.Request) bool
+	serverName          string
+	tracer              oteltrace.Tracer
+	propagators         propagation.TextMapPropagator
+	handler             http.Handler
+	chiRoutes           chi.Routes
+	reqMethodInSpanName bool
+	filters             []Filter
+	publicEndpointFn    func(r *http.Request) bool
+	respModifiers       []ResponseModifier
 }
 
 type recordingResponseWriter struct {
@@ -175,9 +175,10 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tw.tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
 
-	// put trace_id to response header only when WithTraceResponseHeaderKey is used
-	if len(tw.traceResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
-		w.Header().Add(tw.traceResponseHeaderKey, span.SpanContext().TraceID().String())
+	// apply response modifiers before executing next http handler, this is so the modification
+	// can be passed to the next handler
+	for _, respMod := range tw.respModifiers {
+		respMod(ctx, w)
 	}
 
 	// get recording response writer
