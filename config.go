@@ -2,6 +2,7 @@ package otelchi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -98,7 +99,10 @@ func WithFilter(filter Filter) Option {
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return WithResponseModifier(
-		ResponseModifierTraceIDResponseHeader(headerKeyFunc),
+		ResponseModifierTraceIDResponseHeader(ResponseModifierTraceIDResponseHeaderOption{
+			HeaderKeyFunc:        headerKeyFunc,
+			IncludeSampledStatus: false,
+		}),
 	)
 }
 
@@ -161,19 +165,30 @@ func WithResponseModifier(modFunc ResponseModifier) Option {
 // into response header. Please note that even though the trace is not sampled, the trace
 // id will be still set into the response header. If this behavior is not desirable you
 // can create your own response modifier.
-func ResponseModifierTraceIDResponseHeader(headerKeyFunc func() string) ResponseModifier {
+func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHeaderOption) ResponseModifier {
 	return func(ctx context.Context, w http.ResponseWriter) {
 		// set the response header key
 		headerKey := defaultTraceResponseHeaderKey
-		if headerKeyFunc != nil {
-			headerKey = headerKeyFunc()
+		if opt.HeaderKeyFunc != nil {
+			headerKey = opt.HeaderKeyFunc()
 		}
 
 		// set the trace id into response header, please note that even though the trace
 		// is not sampled, its id will be still set into the response header. If this
 		// behavior is not desirable you can create your own response modifier.
 		if span := oteltrace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
-			w.Header().Set(headerKey, span.SpanContext().TraceID().String())
+			value := span.SpanContext().TraceID().String()
+			if opt.IncludeSampledStatus {
+				value = fmt.Sprintf("%v; sampled=%v", value, span.SpanContext().IsSampled())
+			}
+			w.Header().Set(headerKey, value)
 		}
 	}
+}
+
+// ResponseModifierTraceIDResponseHeaderOption is used for configuring the behavior of
+// ResponseModifierTraceIDResponseHeader.
+type ResponseModifierTraceIDResponseHeaderOption struct {
+	HeaderKeyFunc        func() string
+	IncludeSampledStatus bool
 }
