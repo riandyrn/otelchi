@@ -179,10 +179,10 @@ func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHe
 		// set the trace id into response header, please note that even though the trace
 		// is not sampled, its id will be still set into the response header. If this
 		// behavior is not desirable you can create your own response modifier.
-		if span := oteltrace.SpanFromContext(ctx); span.SpanContext().HasTraceID() {
-			value := span.SpanContext().TraceID().String()
+		if spanCtx := oteltrace.SpanFromContext(ctx).SpanContext(); spanCtx.HasTraceID() {
+			value := spanCtx.TraceID().String()
 			if opt.IncludeSampledStatus {
-				value = fmt.Sprintf("%v; sampled=%v", value, span.SpanContext().IsSampled())
+				value = fmt.Sprintf("%v; sampled=%v", value, spanCtx.IsSampled())
 			}
 			w.Header().Set(headerKey, value)
 		}
