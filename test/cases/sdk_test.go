@@ -755,6 +755,22 @@ func TestSDKIntegrationWithResponseModifier(t *testing.T) {
 		}
 	}
 
+	// define next middleware, we should be able to access the response header
+	// set by the response modifier.
+	mdlwr := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			spanCtx := trace.SpanFromContext(r.Context()).SpanContext()
+			headerVal := w.Header().Get(headerKey)
+			if spanCtx.IsSampled() {
+				// we should be able to access the response header
+				require.NotEmpty(t, headerVal)
+			} else {
+				require.Empty(t, headerVal)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	// define router, here we are using global tracer provider
 	// which provides "pass through" spans for any span context in the
 	// incoming request context.
@@ -765,6 +781,7 @@ func TestSDKIntegrationWithResponseModifier(t *testing.T) {
 			otelchi.WithChiRoutes(router),
 			otelchi.WithResponseModifier(respMod),
 		),
+		mdlwr,
 	)
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
 
