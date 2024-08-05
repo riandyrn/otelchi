@@ -106,6 +106,7 @@ func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 		} else {
 			cfg.TraceIDResponseHeaderKey = headerKeyFunc()
 		}
+		cfg.TraceSampledResponseKey = defaultTraceSampledResponseHeaderKey
 	})
 }
 

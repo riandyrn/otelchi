@@ -24,9 +24,7 @@ const (
 // requests. The serverName parameter should describe the name of the
 // (virtual) server handling the request.
 func Middleware(serverName string, opts ...Option) func(next http.Handler) http.Handler {
-	cfg := config{
-		TraceSampledResponseKey: defaultTraceSampledResponseHeaderKey,
-	}
+	cfg := config{}
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
