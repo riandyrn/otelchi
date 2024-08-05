@@ -166,14 +166,19 @@ func WithResponseModifier(modFunc ResponseModifier) Option {
 // id will be still set into the response header. If this behavior is not desirable you
 // can create your own response modifier.
 func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHeaderOption) ResponseModifier {
+	// validate the option, if the option is invalid trigger panic
+	// the reason why we use panic here so that the panic will be triggered
+	// during the initialization of the middleware, not during the request
+	// processing.
+	if err := opt.Validate(); err != nil {
+		panic(err)
+	}
+
 	return func(ctx context.Context, w http.ResponseWriter) {
 		// set the response header key
 		headerKey := DefaultTraceResponseHeaderKey
 		if opt.HeaderKeyFunc != nil {
 			headerKey = opt.HeaderKeyFunc()
-			if len(headerKey) == 0 {
-				panic("header key must not be empty")
-			}
 		}
 
 		// set the trace id into response header, please note that even though the trace
@@ -194,4 +199,12 @@ func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHe
 type ResponseModifierTraceIDResponseHeaderOption struct {
 	HeaderKeyFunc        func() string
 	IncludeSampledStatus bool
+}
+
+func (opt ResponseModifierTraceIDResponseHeaderOption) Validate() error {
+	// the header key func must not return empty string
+	if opt.HeaderKeyFunc != nil && len(opt.HeaderKeyFunc()) == 0 {
+		return fmt.Errorf("header key func must not return empty string")
+	}
+	return nil
 }

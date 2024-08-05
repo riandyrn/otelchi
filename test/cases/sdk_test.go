@@ -819,6 +819,16 @@ func TestSDKIntegrationWithResponseModifier(t *testing.T) {
 	}
 }
 
+func TestSDKIntegrationResponseModifierTraceIDResponseHeaderInvalidOption(t *testing.T) {
+	require.Panics(t, func() {
+		// define response modifier with header key func that returns empty string
+		// this should trigger panic because the option is invalid.
+		otelchi.ResponseModifierTraceIDResponseHeader(otelchi.ResponseModifierTraceIDResponseHeaderOption{
+			HeaderKeyFunc: func() string { return "" },
+		})
+	})
+}
+
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, kind, span.SpanKind())
