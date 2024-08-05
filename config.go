@@ -174,13 +174,13 @@ func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHe
 		panic(err)
 	}
 
-	return func(ctx context.Context, w http.ResponseWriter) {
-		// set the response header key
-		headerKey := DefaultTraceResponseHeaderKey
-		if opt.HeaderKeyFunc != nil {
-			headerKey = opt.HeaderKeyFunc()
-		}
+	// set the response header key
+	headerKey := DefaultTraceResponseHeaderKey
+	if opt.HeaderKeyFunc != nil {
+		headerKey = opt.HeaderKeyFunc()
+	}
 
+	return func(ctx context.Context, w http.ResponseWriter) {
 		// set the trace id into response header, please note that even though the trace
 		// is not sampled, its id will be still set into the response header. If this
 		// behavior is not desirable you can create your own response modifier.
