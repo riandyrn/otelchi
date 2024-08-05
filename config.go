@@ -8,6 +8,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
+// These deaults are used in [TraceHeaderConfig].
 const (
 	defaultTraceIDResponseHeaderKey      = "X-Trace-Id"
 	defaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
@@ -15,14 +16,14 @@ const (
 
 // config is used to configure the mux middleware.
 type config struct {
-	TracerProvider           oteltrace.TracerProvider
-	Propagators              propagation.TextMapPropagator
-	ChiRoutes                chi.Routes
-	RequestMethodInSpanName  bool
-	Filters                  []Filter
-	TraceIDResponseHeaderKey string
-	TraceSampledResponseKey  string
-	PublicEndpointFn         func(r *http.Request) bool
+	TracerProvider                oteltrace.TracerProvider
+	Propagators                   propagation.TextMapPropagator
+	ChiRoutes                     chi.Routes
+	RequestMethodInSpanName       bool
+	Filters                       []Filter
+	TraceIDResponseHeaderKey      string
+	TraceSampledResponseHeaderKey string
+	PublicEndpointFn              func(r *http.Request) bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -99,12 +100,33 @@ func WithFilter(filter Filter) Option {
 // WithTraceIDResponseHeader enables adding trace id into response header.
 // It accepts a function that generates the header key name. If this parameter
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
+//
+// Deprecated: use [WithTraceResponseHeaders] instead.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return optionFunc(func(cfg *config) {
 		if headerKeyFunc == nil {
 			cfg.TraceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey // use default trace header
 		} else {
 			cfg.TraceIDResponseHeaderKey = headerKeyFunc()
+		}
+	})
+}
+
+type TraceHeaderConfig struct {
+	TraceIDHeader      string // if non-empty overrides the default of X-Trace-ID
+	TraceSampledHeader string // if non-empty overrides the default of X-Trace-Sampled
+}
+
+func WithTraceResponseHeaders(cfg TraceHeaderConfig) Option {
+	return optionFunc(func(c *config) {
+		c.TraceIDResponseHeaderKey = cfg.TraceIDHeader
+		if c.TraceIDResponseHeaderKey == "" {
+			c.TraceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey
+		}
+
+		c.TraceSampledResponseHeaderKey = cfg.TraceSampledHeader
+		if c.TraceSampledResponseHeaderKey == "" {
+			c.TraceSampledResponseHeaderKey = defaultTraceSampledResponseHeaderKey
 		}
 	})
 }
