@@ -1,6 +1,8 @@
 package otelchi
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -8,7 +10,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-const defaultTraceResponseHeaderKey = "X-Trace-Id"
+const DefaultTraceResponseHeaderKey = "X-Trace-Id"
 
 // config is used to configure the mux middleware.
 type config struct {
@@ -17,8 +19,8 @@ type config struct {
 	ChiRoutes               chi.Routes
 	RequestMethodInSpanName bool
 	Filters                 []Filter
-	TraceResponseHeaderKey  string
 	PublicEndpointFn        func(r *http.Request) bool
+	ResponseModifiers       []ResponseModifier
 }
 
 // Option specifies instrumentation configuration options.
@@ -96,13 +98,12 @@ func WithFilter(filter Filter) Option {
 // It accepts a function that generates the header key name. If this parameter
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
-	return optionFunc(func(cfg *config) {
-		if headerKeyFunc == nil {
-			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // use default trace header
-		} else {
-			cfg.TraceResponseHeaderKey = headerKeyFunc()
-		}
-	})
+	return WithResponseModifier(
+		ResponseModifierTraceIDResponseHeader(ResponseModifierTraceIDResponseHeaderOption{
+			HeaderKeyFunc:        headerKeyFunc,
+			IncludeSampledStatus: false,
+		}),
+	)
 }
 
 // WithPublicEndpoint is used for marking every endpoint as public endpoint.
@@ -144,4 +145,66 @@ func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.PublicEndpointFn = fn
 	})
+}
+
+// ResponseModifier is a function that allow modification to the response before
+// being passed to the underlying handler.
+type ResponseModifier func(ctx context.Context, w http.ResponseWriter)
+
+// WithResponseModifier adds a response modifier to the list of response modifiers.
+//
+// Each modifiers will be invoked before executing the underlying handler. So every
+// modification done by the modifiers will be passed to the underlying handler.
+func WithResponseModifier(modFunc ResponseModifier) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.ResponseModifiers = append(cfg.ResponseModifiers, modFunc)
+	})
+}
+
+// ResponseModifierTraceIDResponseHeader is a response modifier that sets the trace id
+// into response header. Please note that even though the trace is not sampled, the trace
+// id will be still set into the response header. If this behavior is not desirable you
+// can create your own response modifier.
+func ResponseModifierTraceIDResponseHeader(opt ResponseModifierTraceIDResponseHeaderOption) ResponseModifier {
+	// validate the option, if the option is invalid trigger panic
+	// the reason why we use panic here so that the panic will be triggered
+	// during the initialization of the middleware, not during the request
+	// processing.
+	if err := opt.Validate(); err != nil {
+		panic(err)
+	}
+
+	// set the response header key
+	headerKey := DefaultTraceResponseHeaderKey
+	if opt.HeaderKeyFunc != nil {
+		headerKey = opt.HeaderKeyFunc()
+	}
+
+	return func(ctx context.Context, w http.ResponseWriter) {
+		// set the trace id into response header, please note that even though the trace
+		// is not sampled, its id will be still set into the response header. If this
+		// behavior is not desirable you can create your own response modifier.
+		if spanCtx := oteltrace.SpanFromContext(ctx).SpanContext(); spanCtx.HasTraceID() {
+			value := spanCtx.TraceID().String()
+			if opt.IncludeSampledStatus {
+				value = fmt.Sprintf("%v; sampled=%v", value, spanCtx.IsSampled())
+			}
+			w.Header().Set(headerKey, value)
+		}
+	}
+}
+
+// ResponseModifierTraceIDResponseHeaderOption is used for configuring the behavior of
+// ResponseModifierTraceIDResponseHeader.
+type ResponseModifierTraceIDResponseHeaderOption struct {
+	HeaderKeyFunc        func() string
+	IncludeSampledStatus bool
+}
+
+func (opt ResponseModifierTraceIDResponseHeaderOption) Validate() error {
+	// the header key func must not return empty string
+	if opt.HeaderKeyFunc != nil && len(opt.HeaderKeyFunc()) == 0 {
+		return fmt.Errorf("header key func must not return empty string")
+	}
+	return nil
 }

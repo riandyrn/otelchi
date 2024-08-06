@@ -17,6 +17,17 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+var traceID trace.TraceID = [16]byte{1}
+
+var spanCtxSampled = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID:    traceID,
+	TraceFlags: trace.FlagsSampled,
+})
+
+var spanCtxNotSampled = trace.NewSpanContext(trace.SpanContextConfig{
+	TraceID: traceID,
+})
+
 func TestSDKIntegration(t *testing.T) {
 	// prepare router and span recorder
 	router, sr := newSDKTestRouter("foobar", false)
@@ -398,43 +409,63 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 	})
 }
 
-func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
-	// Define a function inline that transforms the default
-	// header name to a custom header name
-	customHeaderKeyFunc := func() string {
-		return "X-Custom-Trace-ID"
-	}
-
-	router, sr := newSDKTestRouter(
-		"foobar",
-		true,
-		otelchi.WithTraceIDResponseHeader(customHeaderKeyFunc),
-	)
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-	checkSpans(t, recordedSpans, []spanValueCheck{
+func TestSDKIntegrationWithTraceIDResponseHeader(t *testing.T) {
+	testCases := []struct {
+		Name          string
+		HeaderKeyFunc func() string
+		ExpHeaderName string
+	}{
 		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
+			Name:          "With Default Header Key",
+			HeaderKeyFunc: nil,
+			ExpHeaderName: otelchi.DefaultTraceResponseHeaderKey,
 		},
-	})
-	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), recordedSpans[0].SpanContext().TraceID().String())
+		{
+			Name:          "With Custom Header Key",
+			HeaderKeyFunc: func() string { return "X-Custom-Trace-ID" },
+			ExpHeaderName: "X-Custom-Trace-ID",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			router, sr := newSDKTestRouter(
+				"foobar",
+				true,
+				otelchi.WithTraceIDResponseHeader(testCase.HeaderKeyFunc),
+			)
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			recordedSpans := sr.Ended()
+			require.Len(t, recordedSpans, 1)
+			checkSpans(t, recordedSpans, []spanValueCheck{
+				{
+					Name: "/user/{id:[0-9]+}",
+					Kind: trace.SpanKindServer,
+					Attributes: getSemanticAttributes(
+						"foobar",
+						http.StatusOK,
+						"GET",
+						"/user/{id:[0-9]+}",
+					),
+				},
+			})
+			require.Equalf(
+				t,
+				recordedSpans[0].SpanContext().TraceID().String(),
+				w.Header().Get(testCase.ExpHeaderName),
+				"the expected header key: `%v` is not found in the response header",
+				testCase.ExpHeaderName,
+			)
+		})
+	}
 }
 
-func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
+func TestSDKIntegrationWithoutWithTraceIDResponseHeader(t *testing.T) {
 	router, sr := newSDKTestRouter("foobar", true)
 
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
@@ -460,7 +491,7 @@ func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
 		},
 	})
 
-	require.Empty(t, w.Header().Get("X-Trace-ID"))
+	require.Empty(t, w.Header().Get(otelchi.DefaultTraceResponseHeaderKey))
 }
 
 func TestWithPublicEndpoint(t *testing.T) {
@@ -593,6 +624,209 @@ func TestWithPublicEndpointFn(t *testing.T) {
 			testCase.SpansAssert(t, remoteSpanCtx, spanRecorder.Ended())
 		})
 	}
+}
+
+func TestSDKIntegrationResponseModifierTraceIDResponseHeader(t *testing.T) {
+
+	testCases := []struct {
+		Name           string
+		Option         otelchi.ResponseModifierTraceIDResponseHeaderOption
+		SpanContext    trace.SpanContext
+		ExpHeaderName  string
+		ExpHeaderValue string
+	}{
+		{
+			Name:           "With Default Option - Trace Sampled",
+			Option:         otelchi.ResponseModifierTraceIDResponseHeaderOption{},
+			SpanContext:    spanCtxSampled,
+			ExpHeaderName:  otelchi.DefaultTraceResponseHeaderKey,
+			ExpHeaderValue: traceID.String(),
+		},
+		{
+			Name:           "With Default Option - Trace Not Sampled",
+			Option:         otelchi.ResponseModifierTraceIDResponseHeaderOption{},
+			SpanContext:    spanCtxNotSampled,
+			ExpHeaderName:  otelchi.DefaultTraceResponseHeaderKey,
+			ExpHeaderValue: traceID.String(),
+		},
+		{
+			Name: "With Custom Header Key - Trace Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				HeaderKeyFunc: func() string { return "X-Custom-Trace-ID" },
+			},
+			SpanContext:    spanCtxSampled,
+			ExpHeaderName:  "X-Custom-Trace-ID",
+			ExpHeaderValue: traceID.String(),
+		},
+		{
+			Name: "With Custom Header Key - Trace Not Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				HeaderKeyFunc: func() string { return "X-Custom-Trace-ID" },
+			},
+			SpanContext:    spanCtxNotSampled,
+			ExpHeaderName:  "X-Custom-Trace-ID",
+			ExpHeaderValue: traceID.String(),
+		},
+		{
+			Name: "With Include Sampled Status - Trace Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				IncludeSampledStatus: true,
+			},
+			SpanContext:    spanCtxSampled,
+			ExpHeaderName:  otelchi.DefaultTraceResponseHeaderKey,
+			ExpHeaderValue: traceID.String() + "; sampled=true",
+		},
+		{
+			Name: "With Include Sampled Status - Trace Not Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				IncludeSampledStatus: true,
+			},
+			SpanContext:    spanCtxNotSampled,
+			ExpHeaderName:  otelchi.DefaultTraceResponseHeaderKey,
+			ExpHeaderValue: traceID.String() + "; sampled=false",
+		},
+		{
+			Name: "With Custom Header Key & Include Sampled Status - Trace Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				HeaderKeyFunc:        func() string { return "X-Custom-Trace-ID" },
+				IncludeSampledStatus: true,
+			},
+			SpanContext:    spanCtxSampled,
+			ExpHeaderName:  "X-Custom-Trace-ID",
+			ExpHeaderValue: traceID.String() + "; sampled=true",
+		},
+		{
+			Name: "With Custom Header Key & Include Sampled Status - Trace Not Sampled",
+			Option: otelchi.ResponseModifierTraceIDResponseHeaderOption{
+				HeaderKeyFunc:        func() string { return "X-Custom-Trace-ID" },
+				IncludeSampledStatus: true,
+			},
+			SpanContext:    spanCtxNotSampled,
+			ExpHeaderName:  "X-Custom-Trace-ID",
+			ExpHeaderValue: traceID.String() + "; sampled=false",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			// define the router, here we are using global tracer provider
+			// which provides "pass through" spans for any span context in the
+			// incoming request context.
+			router := chi.NewRouter()
+			router.Use(
+				otelchi.Middleware(
+					"foobar",
+					otelchi.WithChiRoutes(router),
+					otelchi.WithResponseModifier(
+						otelchi.ResponseModifierTraceIDResponseHeader(testCase.Option),
+					),
+				),
+			)
+
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			r0 = r0.WithContext(trace.ContextWithSpanContext(context.Background(), testCase.SpanContext))
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			// check if expected response header is set
+			require.NotEmpty(t, w.Header().Get(testCase.ExpHeaderName))
+
+			// check if the expected value is correct
+			require.Equal(t, testCase.ExpHeaderValue, w.Header().Get(testCase.ExpHeaderName))
+		})
+	}
+}
+
+func TestSDKIntegrationWithResponseModifier(t *testing.T) {
+	// In this test case we will exercise the response modifier feature
+	// to simulate use case mentioned in this PR: https://github.com/riandyrn/otelchi/pull/56
+	// which essentially don't add trace id to response header if the trace is not sampled.
+
+	// define response modifier
+	headerKey := otelchi.DefaultTraceResponseHeaderKey
+	respMod := func(ctx context.Context, w http.ResponseWriter) {
+		spanCtx := trace.SpanFromContext(ctx).SpanContext()
+		if spanCtx.IsSampled() {
+			w.Header().Set(headerKey, spanCtx.TraceID().String())
+		}
+	}
+
+	// define next middleware, we should be able to access the response header
+	// set by the response modifier.
+	mdlwr := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			spanCtx := trace.SpanFromContext(r.Context()).SpanContext()
+			headerVal := w.Header().Get(headerKey)
+			if spanCtx.IsSampled() {
+				// we should be able to access the response header
+				require.NotEmpty(t, headerVal)
+			} else {
+				require.Empty(t, headerVal)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+
+	// define router, here we are using global tracer provider
+	// which provides "pass through" spans for any span context in the
+	// incoming request context.
+	router := chi.NewRouter()
+	router.Use(
+		otelchi.Middleware(
+			"foobar",
+			otelchi.WithChiRoutes(router),
+			otelchi.WithResponseModifier(respMod),
+		),
+		mdlwr,
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+
+	// execute test cases
+	testCases := []struct {
+		Name            string
+		SpanContext     trace.SpanContext
+		ExpHeaderExists bool
+	}{
+		{
+			Name:            "Trace Sampled",
+			SpanContext:     spanCtxSampled,
+			ExpHeaderExists: true,
+		},
+		{
+			Name:            "Trace Not Sampled",
+			SpanContext:     spanCtxNotSampled,
+			ExpHeaderExists: false,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			r0 = r0.WithContext(trace.ContextWithSpanContext(context.Background(), testCase.SpanContext))
+
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			if testCase.ExpHeaderExists {
+				require.NotEmpty(t, w.Header().Get(headerKey))
+			} else {
+				require.Empty(t, w.Header().Get(headerKey))
+			}
+		})
+	}
+}
+
+func TestSDKIntegrationResponseModifierTraceIDResponseHeaderInvalidOption(t *testing.T) {
+	require.Panics(t, func() {
+		// define response modifier with header key func that returns empty string
+		// this should trigger panic because the option is invalid.
+		otelchi.ResponseModifierTraceIDResponseHeader(otelchi.ResponseModifierTraceIDResponseHeaderOption{
+			HeaderKeyFunc: func() string { return "" },
+		})
+	})
 }
 
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
