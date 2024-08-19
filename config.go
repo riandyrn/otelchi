@@ -8,17 +8,22 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-const defaultTraceResponseHeaderKey = "X-Trace-Id"
+// These deaults are used in [TraceHeaderConfig].
+const (
+	defaultTraceIDResponseHeaderKey      = "X-Trace-Id"
+	defaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
+)
 
 // config is used to configure the mux middleware.
 type config struct {
-	TracerProvider          oteltrace.TracerProvider
-	Propagators             propagation.TextMapPropagator
-	ChiRoutes               chi.Routes
-	RequestMethodInSpanName bool
-	Filters                 []Filter
-	TraceResponseHeaderKey  string
-	PublicEndpointFn        func(r *http.Request) bool
+	tracerProvider                oteltrace.TracerProvider
+	propagators                   propagation.TextMapPropagator
+	chiRoutes                     chi.Routes
+	requestMethodInSpanName       bool
+	filters                       []Filter
+	traceIDResponseHeaderKey      string
+	traceSampledResponseHeaderKey string
+	publicEndpointFn              func(r *http.Request) bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -32,7 +37,7 @@ func (o optionFunc) apply(c *config) {
 	o(c)
 }
 
-// Filter is a predicate used to determine whether a given http.request should
+// Filter is a predicate used to determine whether a given [http.Request] should
 // be traced. A Filter must return true if the request should be traced.
 type Filter func(*http.Request) bool
 
@@ -41,7 +46,7 @@ type Filter func(*http.Request) bool
 // ones will be used.
 func WithPropagators(propagators propagation.TextMapPropagator) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.Propagators = propagators
+		cfg.propagators = propagators
 	})
 }
 
@@ -49,7 +54,7 @@ func WithPropagators(propagators propagation.TextMapPropagator) Option {
 // If none is specified, the global provider is used.
 func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.TracerProvider = provider
+		cfg.tracerProvider = provider
 	})
 }
 
@@ -61,7 +66,7 @@ func WithTracerProvider(provider oteltrace.TracerProvider) Option {
 // is possible for them to override the span name.
 func WithChiRoutes(routes chi.Routes) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.ChiRoutes = routes
+		cfg.chiRoutes = routes
 	})
 }
 
@@ -76,7 +81,7 @@ func WithChiRoutes(routes chi.Routes) Option {
 // - https://github.com/riandyrn/otelchi/issues/6#issuecomment-1034461912
 func WithRequestMethodInSpanName(isActive bool) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.RequestMethodInSpanName = isActive
+		cfg.requestMethodInSpanName = isActive
 	})
 }
 
@@ -88,19 +93,40 @@ func WithRequestMethodInSpanName(isActive bool) Option {
 // simple and fast.
 func WithFilter(filter Filter) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.Filters = append(cfg.Filters, filter)
+		cfg.filters = append(cfg.filters, filter)
 	})
 }
 
 // WithTraceIDResponseHeader enables adding trace id into response header.
 // It accepts a function that generates the header key name. If this parameter
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
+//
+// Deprecated: use [WithTraceResponseHeaders] instead.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return optionFunc(func(cfg *config) {
 		if headerKeyFunc == nil {
-			cfg.TraceResponseHeaderKey = defaultTraceResponseHeaderKey // use default trace header
+			cfg.traceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey // use default trace header
 		} else {
-			cfg.TraceResponseHeaderKey = headerKeyFunc()
+			cfg.traceIDResponseHeaderKey = headerKeyFunc()
+		}
+	})
+}
+
+type TraceHeaderConfig struct {
+	TraceIDHeader      string // if non-empty overrides the default of X-Trace-ID
+	TraceSampledHeader string // if non-empty overrides the default of X-Trace-Sampled
+}
+
+func WithTraceResponseHeaders(cfg TraceHeaderConfig) Option {
+	return optionFunc(func(c *config) {
+		c.traceIDResponseHeaderKey = cfg.TraceIDHeader
+		if c.traceIDResponseHeaderKey == "" {
+			c.traceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey
+		}
+
+		c.traceSampledResponseHeaderKey = cfg.TraceSampledHeader
+		if c.traceSampledResponseHeaderKey == "" {
+			c.traceSampledResponseHeaderKey = defaultTraceSampledResponseHeaderKey
 		}
 	})
 }
@@ -138,10 +164,10 @@ func WithPublicEndpoint() Option {
 // incoming span context. Otherwise, the generated span will be set as the
 // child span of the incoming span context.
 //
-// Essentially it has the same functionality as WithPublicEndpoint but with
+// Essentially it has the same functionality as [WithPublicEndpoint] but with
 // more flexibility.
 func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.PublicEndpointFn = fn
+		cfg.publicEndpointFn = fn
 	})
 }
