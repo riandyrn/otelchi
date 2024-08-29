@@ -1,4 +1,4 @@
-module github.com/nxt-fwd/otelchi
+module github.com/riandyrn/otelchi
 
 go 1.21
 

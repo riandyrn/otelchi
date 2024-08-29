@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/nxt-fwd/otelchi"
+	"github.com/riandyrn/otelchi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
