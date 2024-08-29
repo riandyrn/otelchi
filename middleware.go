@@ -37,6 +37,13 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
 	}
+	spanVisitor := func(httpStatus int, span oteltrace.Span) {
+		// default span visitor sets the span status based on the http status code
+		span.SetStatus(httpconv.ServerStatus(httpStatus))
+	}
+	if cfg.SpanVisitor != nil {
+		spanVisitor = cfg.SpanVisitor
+	}
 
 	return func(handler http.Handler) http.Handler {
 		return traceware{
@@ -49,6 +56,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			filters:                cfg.Filters,
 			traceResponseHeaderKey: cfg.TraceResponseHeaderKey,
 			publicEndpointFn:       cfg.PublicEndpointFn,
+			spanVisitor:            spanVisitor,
 		}
 	}
 }
@@ -63,6 +71,7 @@ type traceware struct {
 	filters                []Filter
 	traceResponseHeaderKey string
 	publicEndpointFn       func(r *http.Request) bool
+	spanVisitor            SpanVisitor
 }
 
 type recordingResponseWriter struct {
@@ -201,12 +210,12 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// set status code attribute
 	span.SetAttributes(semconv.HTTPStatusCode(rrw.status))
 
-	// set span status
-	span.SetStatus(httpconv.ServerStatus(rrw.status))
+	// visit span
+	tw.spanVisitor(rrw.status, span)
 }
 
 func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
-	// in chi v5.0.8, the root route will be returned has an empty string
+	// in chi v5.0.8, the root route will be returned as an empty string
 	// (see https://github.com/go-chi/chi/blob/v5.0.8/context.go#L126)
 	if spanName == "" {
 		spanName = "/"

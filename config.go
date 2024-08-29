@@ -19,6 +19,7 @@ type config struct {
 	Filters                 []Filter
 	TraceResponseHeaderKey  string
 	PublicEndpointFn        func(r *http.Request) bool
+	SpanVisitor             SpanVisitor
 }
 
 // Option specifies instrumentation configuration options.
@@ -35,6 +36,22 @@ func (o optionFunc) apply(c *config) {
 // Filter is a predicate used to determine whether a given http.request should
 // be traced. A Filter must return true if the request should be traced.
 type Filter func(*http.Request) bool
+
+// SpanVisitor is called at the end of the request handling in ServeHTTP
+// to allow for setting span status or additional span attributes.
+//
+// If not set the default visitor calls:
+//
+// `span.SetStatus(httpconv.ServerStatus(httpStatus))`.
+type SpanVisitor func(httpStatus int, span oteltrace.Span)
+
+// WithSpanVisitor specifies a SpanVisitor to be called at the end of the
+// request handling.
+func WithSpanVisitor(visitor SpanVisitor) Option {
+	return optionFunc(func(cfg *config) {
+		cfg.SpanVisitor = visitor
+	})
+}
 
 // WithPropagators specifies propagators to use for extracting
 // information from the HTTP requests. If none are specified, global
