@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Gobrew
 ENV PATH="/root/.gobrew/current/bin:/root/.gobrew/bin:$PATH"
-RUN curl -sLk https://raw.githubusercontent.com/kevincobain2000/gobrew/master/git.io.sh | sh
+RUN curl -sL https://raw.githubusercontent.com/kevincobain2000/gobrew/v1.10.11/git.io.sh | bash
 
 # Set Working Directory
 WORKDIR /go/src/github.com/riandyrn/otelchi
