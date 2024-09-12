@@ -398,6 +398,67 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 	})
 }
 
+func TestSDKIntegrationWithDefaultLegacyHeaderKey(t *testing.T) {
+	router, sr := newSDKTestRouter(
+		"foobar",
+		true,
+		otelchi.WithTraceIDResponseHeader(nil),
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+	router.HandleFunc("/book/{title}", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+
+	recordedSpans := sr.Ended()
+	require.Len(t, recordedSpans, 1)
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/{id:[0-9]+}",
+			),
+		},
+	})
+	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get("X-Trace-ID"))
+}
+
+func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
+	router, sr := newSDKTestRouter(
+		"foobar",
+		true,
+		otelchi.WithTraceResponseHeaders(otelchi.TraceHeaderConfig{}),
+	)
+	router.HandleFunc("/user/{id:[0-9]+}", ok)
+	router.HandleFunc("/book/{title}", ok)
+
+	r0 := httptest.NewRequest("GET", "/user/123", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r0)
+
+	recordedSpans := sr.Ended()
+	require.Len(t, recordedSpans, 1)
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name: "/user/{id:[0-9]+}",
+			Kind: trace.SpanKindServer,
+			Attributes: getSemanticAttributes(
+				"foobar",
+				http.StatusOK,
+				"GET",
+				"/user/{id:[0-9]+}",
+			),
+		},
+	})
+	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get("X-Trace-ID"))
+	require.Equal(t, "true", w.Header().Get("X-Trace-Sampled"))
+}
+
 func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 	// Define a function inline that transforms the default
 	// header name to a custom header name
@@ -596,6 +657,8 @@ func TestWithPublicEndpointFn(t *testing.T) {
 }
 
 func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
+	t.Helper()
+
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, kind, span.SpanKind())
 
@@ -653,6 +716,8 @@ func getSemanticAttributes(serverName string, httpStatusCode int, httpMethod, ht
 }
 
 func checkSpans(t *testing.T, spans []sdktrace.ReadOnlySpan, valueChecks []spanValueCheck) {
+	t.Helper()
+
 	for i := 0; i < len(spans); i++ {
 		span := spans[i]
 		valueCheck := valueChecks[i]
