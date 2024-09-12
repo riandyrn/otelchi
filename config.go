@@ -112,11 +112,16 @@ func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	})
 }
 
+// TraceHeaderConfig is configuration for trace headers in the response.
 type TraceHeaderConfig struct {
 	TraceIDHeader      string // if non-empty overrides the default of X-Trace-ID
 	TraceSampledHeader string // if non-empty overrides the default of X-Trace-Sampled
 }
 
+// WithTraceResponseHeaders configures the response headers for trace information.
+// It accepts a TraceHeaderConfig struct that contains the keys for the Trace ID
+// and Trace Sampled headers. If the provided keys are empty, default values will
+// be used for the respective headers.
 func WithTraceResponseHeaders(cfg TraceHeaderConfig) Option {
 	return optionFunc(func(c *config) {
 		c.TraceIDResponseHeaderKey = cfg.TraceIDHeader
