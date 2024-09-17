@@ -8,7 +8,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
-// These deaults are used in [TraceHeaderConfig].
+// These defaults are used in `TraceHeaderConfig`.
 const (
 	defaultTraceIDResponseHeaderKey      = "X-Trace-Id"
 	defaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
@@ -37,7 +37,7 @@ func (o optionFunc) apply(c *config) {
 	o(c)
 }
 
-// Filter is a predicate used to determine whether a given [http.Request] should
+// Filter is a predicate used to determine whether a given http.Request should
 // be traced. A Filter must return true if the request should be traced.
 type Filter func(*http.Request) bool
 
@@ -101,7 +101,7 @@ func WithFilter(filter Filter) Option {
 // It accepts a function that generates the header key name. If this parameter
 // function set to `nil` the default header key which is `X-Trace-Id` will be used.
 //
-// Deprecated: use [WithTraceResponseHeaders] instead.
+// Deprecated: use `WithTraceResponseHeaders` instead.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
 	return optionFunc(func(cfg *config) {
 		if headerKeyFunc == nil {
@@ -169,7 +169,7 @@ func WithPublicEndpoint() Option {
 // incoming span context. Otherwise, the generated span will be set as the
 // child span of the incoming span context.
 //
-// Essentially it has the same functionality as [WithPublicEndpoint] but with
+// Essentially it has the same functionality as `WithPublicEndpoint` but with
 // more flexibility.
 func WithPublicEndpointFn(fn func(r *http.Request) bool) Option {
 	return optionFunc(func(cfg *config) {
