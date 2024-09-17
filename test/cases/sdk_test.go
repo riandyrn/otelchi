@@ -425,7 +425,8 @@ func TestSDKIntegrationWithDefaultLegacyHeaderKey(t *testing.T) {
 			),
 		},
 	})
-	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get("X-Trace-ID"))
+	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
+	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
 }
 
 func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
@@ -455,11 +456,11 @@ func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
 			),
 		},
 	})
-	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get("X-Trace-ID"))
-	require.Equal(t, "true", w.Header().Get("X-Trace-Sampled"))
+	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
+	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
 }
 
-func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
+func TestSDKIntegrationWithOverrideLegacyHeaderKey(t *testing.T) {
 	// Define a function inline that transforms the default
 	// header name to a custom header name
 	customHeaderKeyFunc := func() string {
@@ -493,9 +494,10 @@ func TestSDKIntegrationWithOverrideHeaderKey(t *testing.T) {
 		},
 	})
 	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), recordedSpans[0].SpanContext().TraceID().String())
+	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
 }
 
-func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
+func TestSDKIntegrationWithoutOverrideLegacyHeaderKey(t *testing.T) {
 	router, sr := newSDKTestRouter("foobar", true)
 
 	router.HandleFunc("/user/{id:[0-9]+}", ok)
@@ -521,7 +523,8 @@ func TestSDKIntegrationWithoutOverrideHeaderKey(t *testing.T) {
 		},
 	})
 
-	require.Empty(t, w.Header().Get("X-Trace-ID"))
+	require.Empty(t, w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
+	require.Empty(t, w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
 }
 
 func TestWithPublicEndpoint(t *testing.T) {

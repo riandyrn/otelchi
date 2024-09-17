@@ -10,8 +10,8 @@ import (
 
 // These defaults are used in `TraceHeaderConfig`.
 const (
-	defaultTraceIDResponseHeaderKey      = "X-Trace-Id"
-	defaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
+	DefaultTraceIDResponseHeaderKey      = "X-Trace-Id"
+	DefaultTraceSampledResponseHeaderKey = "X-Trace-Sampled"
 )
 
 // config is used to configure the mux middleware.
@@ -103,13 +103,14 @@ func WithFilter(filter Filter) Option {
 //
 // Deprecated: use `WithTraceResponseHeaders` instead.
 func WithTraceIDResponseHeader(headerKeyFunc func() string) Option {
-	return optionFunc(func(cfg *config) {
-		if headerKeyFunc == nil {
-			cfg.TraceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey // use default trace header
-		} else {
-			cfg.TraceIDResponseHeaderKey = headerKeyFunc()
-		}
-	})
+	cfg := TraceHeaderConfig{
+		TraceIDHeader:      "",
+		TraceSampledHeader: "",
+	}
+	if headerKeyFunc != nil {
+		cfg.TraceIDHeader = headerKeyFunc()
+	}
+	return WithTraceResponseHeaders(cfg)
 }
 
 // TraceHeaderConfig is configuration for trace headers in the response.
@@ -126,12 +127,12 @@ func WithTraceResponseHeaders(cfg TraceHeaderConfig) Option {
 	return optionFunc(func(c *config) {
 		c.TraceIDResponseHeaderKey = cfg.TraceIDHeader
 		if c.TraceIDResponseHeaderKey == "" {
-			c.TraceIDResponseHeaderKey = defaultTraceIDResponseHeaderKey
+			c.TraceIDResponseHeaderKey = DefaultTraceIDResponseHeaderKey
 		}
 
 		c.TraceSampledResponseHeaderKey = cfg.TraceSampledHeader
 		if c.TraceSampledResponseHeaderKey == "" {
-			c.TraceSampledResponseHeaderKey = defaultTraceSampledResponseHeaderKey
+			c.TraceSampledResponseHeaderKey = DefaultTraceSampledResponseHeaderKey
 		}
 	})
 }
