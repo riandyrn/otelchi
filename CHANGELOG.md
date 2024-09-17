@@ -16,7 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- Upgrade `go.opentelemetry.io/otel`, `go.opentelemetry.io/otel/sdk`, & `go.opentelemetry.io/otel/trace` to `v1.28.0`. ([#64])
+- Upgrade `go.opentelemetry.io/otel`, `go.opentelemetry.io/otel/sdk`, & `go.opentelemetry.io/otel/trace` to `v1.30.0`. ([#64])
 - Set the go versions for testing in both `Makefile` & `compatibility-test.yml` to `1.22` & `1.23`. ([#64])
 
 ### Fixed
@@ -25,7 +25,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Removed
 
-- Drop support for Go 1.22. ([#64])
+- Drop support for Go 1.21. ([#64])
 - Deprecated `WithTraceIDResponseHeader` option, use `WithTraceResponseHeaders` instead. ([#62])
 
 ## [0.9.0] - 2024-07-06
