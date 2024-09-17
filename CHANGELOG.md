@@ -194,6 +194,7 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
+[#64]: https://github.com/riandyrn/otelchi/pull/64
 [#63]: https://github.com/riandyrn/otelchi/pull/63
 [#62]: https://github.com/riandyrn/otelchi/pull/62
 [#49]: https://github.com/riandyrn/otelchi/pull/49
