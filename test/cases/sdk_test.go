@@ -430,34 +430,60 @@ func TestSDKIntegrationWithDefaultLegacyHeaderKey(t *testing.T) {
 }
 
 func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
-	router, sr := newSDKTestRouter(
-		"foobar",
-		true,
-		otelchi.WithTraceResponseHeaders(otelchi.TraceHeaderConfig{}),
-	)
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-	checkSpans(t, recordedSpans, []spanValueCheck{
+	testCases := []struct {
+		Name                       string
+		TraceHeaderConfig          otelchi.TraceHeaderConfig
+		ExpTraceResponseIDKey      string
+		ExpTraceResponseSampledKey string
+	}{
 		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
+			Name:                       "Default Trace Config",
+			TraceHeaderConfig:          otelchi.TraceHeaderConfig{},
+			ExpTraceResponseIDKey:      otelchi.DefaultTraceIDResponseHeaderKey,
+			ExpTraceResponseSampledKey: otelchi.DefaultTraceSampledResponseHeaderKey,
 		},
-	})
-	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
-	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
+		{
+			Name: "Custom Trace Config",
+			TraceHeaderConfig: otelchi.TraceHeaderConfig{
+				TraceIDHeader:      "X-Custom-Trace-ID",
+				TraceSampledHeader: "X-Custom-Trace-Sampled",
+			},
+			ExpTraceResponseIDKey:      "X-Custom-Trace-ID",
+			ExpTraceResponseSampledKey: "X-Custom-Trace-Sampled",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			router, sr := newSDKTestRouter(
+				"foobar",
+				true,
+				otelchi.WithTraceResponseHeaders(testCase.TraceHeaderConfig),
+			)
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			recordedSpans := sr.Ended()
+			require.Len(t, recordedSpans, 1)
+			checkSpans(t, recordedSpans, []spanValueCheck{
+				{
+					Name: "/user/{id:[0-9]+}",
+					Kind: trace.SpanKindServer,
+					Attributes: getSemanticAttributes(
+						"foobar",
+						http.StatusOK,
+						"GET",
+						"/user/{id:[0-9]+}",
+					),
+				},
+			})
+			require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get(testCase.ExpTraceResponseIDKey))
+			require.Equal(t, "true", w.Header().Get(testCase.ExpTraceResponseSampledKey))
+		})
+	}
 }
 
 func TestSDKIntegrationWithOverrideLegacyHeaderKey(t *testing.T) {
