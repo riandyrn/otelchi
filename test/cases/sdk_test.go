@@ -399,35 +399,88 @@ func TestSDKIntegrationRootHandler(t *testing.T) {
 	})
 }
 
-func TestSDKIntegrationWithDefaultLegacyHeaderKey(t *testing.T) {
-	router, sr := newSDKTestRouter(
-		"foobar",
-		true,
-		otelchi.WithTraceIDResponseHeader(nil),
-	)
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-	checkSpans(t, recordedSpans, []spanValueCheck{
-		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
-		},
+func TestSDKIntegrationWithTraceIDResponseHeader(t *testing.T) {
+	// prepare both sampled & non-sampled span context
+	spanCtxSampled := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    [16]byte{1},
+		SpanID:     [8]byte{1},
+		Remote:     true,
+		TraceFlags: trace.FlagsSampled,
 	})
-	require.Equal(t, recordedSpans[0].SpanContext().TraceID().String(), w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
-	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
+	spanCtxNotSampled := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    [16]byte{2},
+		SpanID:     [8]byte{2},
+		Remote:     true,
+		TraceFlags: 0,
+	})
+
+	// define custom header key function
+	customHeaderKeyFunc := func() string {
+		return "X-Custom-Trace-ID"
+	}
+
+	// define test cases
+	testCases := []struct {
+		Name                          string
+		HeaderKeyFunc                 func() string
+		SpanContext                   trace.SpanContext
+		ExpTraceResponseIDKey         string
+		ExpTraceResponseSampledKeyVal bool
+	}{
+		{
+			Name:                          "Default Header Key, Trace Sampled",
+			HeaderKeyFunc:                 nil,
+			SpanContext:                   spanCtxSampled,
+			ExpTraceResponseIDKey:         otelchi.DefaultTraceIDResponseHeaderKey,
+			ExpTraceResponseSampledKeyVal: true,
+		},
+		{
+			Name:                          "Default Header Key, Trace Not Sampled",
+			HeaderKeyFunc:                 nil,
+			SpanContext:                   spanCtxNotSampled,
+			ExpTraceResponseIDKey:         otelchi.DefaultTraceIDResponseHeaderKey,
+			ExpTraceResponseSampledKeyVal: false,
+		},
+		{
+			Name:                          "Custom Header Key, Trace Sampled",
+			HeaderKeyFunc:                 customHeaderKeyFunc,
+			SpanContext:                   spanCtxSampled,
+			ExpTraceResponseIDKey:         customHeaderKeyFunc(),
+			ExpTraceResponseSampledKeyVal: true,
+		},
+		{
+			Name:                          "Custom Header Key, Trace Not Sampled",
+			HeaderKeyFunc:                 customHeaderKeyFunc,
+			SpanContext:                   spanCtxNotSampled,
+			ExpTraceResponseIDKey:         customHeaderKeyFunc(),
+			ExpTraceResponseSampledKeyVal: false,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.Name, func(t *testing.T) {
+			// configure router
+			router := chi.NewRouter()
+			router.Use(
+				otelchi.Middleware(
+					"foobar",
+					otelchi.WithChiRoutes(router),
+					otelchi.WithTraceIDResponseHeader(testCase.HeaderKeyFunc),
+				),
+			)
+			router.HandleFunc("/user/{id:[0-9]+}", ok)
+			router.HandleFunc("/book/{title}", ok)
+
+			// execute requests
+			r0 := httptest.NewRequest("GET", "/user/123", nil)
+			r0 = r0.WithContext(trace.ContextWithRemoteSpanContext(context.Background(), testCase.SpanContext))
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, r0)
+
+			// check response headers
+			require.Equal(t, testCase.SpanContext.TraceID().String(), w.Header().Get(testCase.ExpTraceResponseIDKey))
+			require.Equal(t, fmt.Sprintf("%v", testCase.ExpTraceResponseSampledKeyVal), w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
+		})
+	}
 }
 
 func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
@@ -518,73 +571,6 @@ func TestSDKIntegrationWithTraceResponseHeaders(t *testing.T) {
 			require.Equal(t, fmt.Sprintf("%v", testCase.ExpTraceResponseSampledKeyVal), w.Header().Get(testCase.ExpTraceResponseSampledKey))
 		})
 	}
-}
-
-func TestSDKIntegrationWithOverrideLegacyHeaderKey(t *testing.T) {
-	// Define a function inline that transforms the default
-	// header name to a custom header name
-	customHeaderKeyFunc := func() string {
-		return "X-Custom-Trace-ID"
-	}
-
-	router, sr := newSDKTestRouter(
-		"foobar",
-		true,
-		otelchi.WithTraceIDResponseHeader(customHeaderKeyFunc),
-	)
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-	checkSpans(t, recordedSpans, []spanValueCheck{
-		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
-		},
-	})
-	require.Equal(t, w.Header().Get(customHeaderKeyFunc()), recordedSpans[0].SpanContext().TraceID().String())
-	require.Equal(t, "true", w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
-}
-
-func TestSDKIntegrationWithoutOverrideLegacyHeaderKey(t *testing.T) {
-	router, sr := newSDKTestRouter("foobar", true)
-
-	router.HandleFunc("/user/{id:[0-9]+}", ok)
-	router.HandleFunc("/book/{title}", ok)
-
-	r0 := httptest.NewRequest("GET", "/user/123", nil)
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, r0)
-
-	recordedSpans := sr.Ended()
-	require.Len(t, recordedSpans, 1)
-
-	checkSpans(t, recordedSpans, []spanValueCheck{
-		{
-			Name: "/user/{id:[0-9]+}",
-			Kind: trace.SpanKindServer,
-			Attributes: getSemanticAttributes(
-				"foobar",
-				http.StatusOK,
-				"GET",
-				"/user/{id:[0-9]+}",
-			),
-		},
-	})
-
-	require.Empty(t, w.Header().Get(otelchi.DefaultTraceIDResponseHeaderKey))
-	require.Empty(t, w.Header().Get(otelchi.DefaultTraceSampledResponseHeaderKey))
 }
 
 func TestWithPublicEndpoint(t *testing.T) {
