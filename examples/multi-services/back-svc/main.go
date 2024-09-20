@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"go.opentelemetry.io/otel/trace"
+
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/examples/multi-services/utils"
-	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -25,6 +26,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to initialize tracer provider due: %v", err)
 	}
+
+	if err = utils.NewMeter(serviceName); err != nil {
+		log.Fatalf("unable to initialize meter provider due: %v", err)
+	}
+
 	// define router
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
