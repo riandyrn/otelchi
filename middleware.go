@@ -1,15 +1,16 @@
 package otelchi
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/go-chi/chi/v5"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 
 	otelmetric "go.opentelemetry.io/otel/metric"
@@ -47,6 +48,15 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 		otelmetric.WithInstrumentationVersion(Version()),
 	)
 
+	// the reason why we register metrics recorders here
+	// is because if panic triggered, it happens during the initialization
+	// of the middleware, not during the request processing.
+	for _, recorder := range cfg.MetricRecorders {
+		recorder.RegisterMetric(context.Background(), RegisterMetricConfig{
+			Meter: meter,
+		})
+	}
+
 	if cfg.Propagators == nil {
 		cfg.Propagators = otel.GetTextMapPropagator()
 	}
@@ -56,7 +66,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			serverName:                    serverName,
 			tracer:                        tracer,
 			meter:                         meter,
-			recorder:                      newMetricsRecorder(meter),
+			metricRecorders:               cfg.MetricRecorders,
 			propagators:                   cfg.Propagators,
 			handler:                       handler,
 			chiRoutes:                     cfg.ChiRoutes,
@@ -65,8 +75,6 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 			traceIDResponseHeaderKey:      cfg.TraceIDResponseHeaderKey,
 			traceSampledResponseHeaderKey: cfg.TraceSampledResponseHeaderKey,
 			publicEndpointFn:              cfg.PublicEndpointFn,
-			disableMeasureInflight:        cfg.DisableMeasureInflight,
-			disableMeasureSize:            cfg.DisableMeasureSize,
 		}
 	}
 }
@@ -75,7 +83,7 @@ type otelware struct {
 	serverName                    string
 	tracer                        oteltrace.Tracer
 	meter                         otelmetric.Meter
-	recorder                      *metricsRecorder
+	metricRecorders               []MetricsRecorder
 	propagators                   propagation.TextMapPropagator
 	handler                       http.Handler
 	chiRoutes                     chi.Routes
@@ -84,9 +92,6 @@ type otelware struct {
 	traceIDResponseHeaderKey      string
 	traceSampledResponseHeaderKey string
 	publicEndpointFn              func(r *http.Request) bool
-
-	disableMeasureInflight bool
-	disableMeasureSize     bool
 }
 
 type recordingResponseWriter struct {
@@ -198,20 +203,6 @@ func (ow *otelware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	props := httpReqProperties{
-		Service: ow.serverName,
-		ID:      routePattern,
-		Method:  r.Method,
-	}
-	if routePattern == "" {
-		props.ID = r.URL.Path
-	}
-
-	if !ow.disableMeasureInflight {
-		ow.recorder.RecordRequestsInflight(ctx, props, 1)
-		defer ow.recorder.RecordRequestsInflight(ctx, props, -1)
-	}
-
 	// start span
 	ctx, span := ow.tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
@@ -228,15 +219,20 @@ func (ow *otelware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// execute next http handler
 	r = r.WithContext(ctx)
-	start := time.Now()
+
+	// start metric before executing the handler
+	metricOpts := MetricOpts{
+		Measurement: otelmetric.WithAttributeSet(attribute.NewSet(spanAttributes...)),
+	}
+	for _, recorder := range ow.metricRecorders {
+		recorder.StartMetric(ctx, metricOpts)
+	}
+
 	ow.handler.ServeHTTP(rrw.writer, r)
-	duration := time.Since(start)
 
-	props.Code = rrw.status
-	ow.recorder.RecordRequestDuration(ctx, props, duration)
-
-	if !ow.disableMeasureSize {
-		ow.recorder.RecordResponseSize(ctx, props, rrw.writtenBytes)
+	// end metric after executing the handler
+	for _, recorder := range ow.metricRecorders {
+		recorder.EndMetric(ctx, metricOpts)
 	}
 
 	// set span name & http route attribute if route pattern cannot be determined

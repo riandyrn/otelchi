@@ -1,6 +1,7 @@
 package otelchi
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -23,12 +24,10 @@ type config struct {
 	ChiRoutes                     chi.Routes
 	RequestMethodInSpanName       bool
 	Filters                       []Filter
+	MetricRecorders               []MetricsRecorder
 	TraceIDResponseHeaderKey      string
 	TraceSampledResponseHeaderKey string
 	PublicEndpointFn              func(r *http.Request) bool
-
-	DisableMeasureInflight bool
-	DisableMeasureSize     bool
 }
 
 // Option specifies instrumentation configuration options.
@@ -40,6 +39,23 @@ type optionFunc func(*config)
 
 func (o optionFunc) apply(c *config) {
 	o(c)
+}
+
+// RegisterMetricConfig is used to configure metrics.
+type RegisterMetricConfig struct {
+	Meter otelmetric.Meter
+}
+
+// MetricOpts is used to configure metrics.
+type MetricOpts struct {
+	Measurement otelmetric.MeasurementOption
+}
+
+// MetricsRecorder is an interface for recording metrics.
+type MetricsRecorder interface {
+	RegisterMetric(ctx context.Context, cfg RegisterMetricConfig)
+	StartMetric(ctx context.Context, opts MetricOpts)
+	EndMetric(ctx context.Context, opts MetricOpts)
 }
 
 // Filter is a predicate used to determine whether a given http.Request should
@@ -71,19 +87,11 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 	})
 }
 
-// WithMeasureInflightDisabled specifies whether to measure the number of inflight requests.
-// If this option is not set, the number of inflight requests will be measured.
-func WithMeasureInflightDisabled(isDisabled bool) Option {
+// WithMetricRecorders specifies metric recorders to use for recording metrics.
+// If none are specified, no metrics will be recorded.
+func WithMetricRecorders(recorders ...MetricsRecorder) Option {
 	return optionFunc(func(cfg *config) {
-		cfg.DisableMeasureInflight = isDisabled
-	})
-}
-
-// WithMeasureSizeDisabled specifies whether to measure the size of the response body.
-// If this option is not set, the size of the response body will be measured.
-func WithMeasureSizeDisabled(isDisabled bool) Option {
-	return optionFunc(func(cfg *config) {
-		cfg.DisableMeasureSize = isDisabled
+		cfg.MetricRecorders = recorders
 	})
 }
 
