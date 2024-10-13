@@ -15,6 +15,7 @@ import (
 
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/examples/multi-services/utils"
+	otelchimetrics "github.com/riandyrn/otelchi/metrics"
 )
 
 const (
@@ -36,7 +37,11 @@ func main() {
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(otelchi.Middleware(
+		serviceName,
+		otelchi.WithChiRoutes(r),
+		otelchi.WithMetricRecorders(otelchimetrics.NewRequestDurationMs()),
+	))
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/greet", func(w http.ResponseWriter, r *http.Request) {
 		name, err := getRandomName(r.Context(), tracer)

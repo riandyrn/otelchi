@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"github.com/riandyrn/otelchi"
+	otelchimetrics "github.com/riandyrn/otelchi/metrics"
 )
 
 var tracer oteltrace.Tracer
@@ -44,7 +46,11 @@ func main() {
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware("my-server", otelchi.WithChiRoutes(r)))
+	r.Use(otelchi.Middleware(
+		"my-server",
+		otelchi.WithChiRoutes(r),
+		otelchi.WithMetricRecorders(otelchimetrics.NewRequestDurationMs()),
+	))
 	r.HandleFunc("/users/{id:[0-9]+}", func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 		name := getUser(r.Context(), id)
@@ -77,15 +83,15 @@ func initOtelProviders() (*sdktrace.TracerProvider, *sdkmetric.MeterProvider) {
 	if err != nil {
 		log.Fatalf("unable to initialize resource due: %v", err)
 	}
+
+	reader := sdkmetric.NewPeriodicReader(metricExporter, sdkmetric.WithInterval(time.Second*30))
 	return sdktrace.NewTracerProvider(
 			sdktrace.WithSampler(sdktrace.AlwaysSample()),
 			sdktrace.WithBatcher(traceExporter),
 			sdktrace.WithResource(res),
 		),
 		sdkmetric.NewMeterProvider(
-			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter,
-				sdkmetric.WithInterval(time.Second*30),
-			)),
+			sdkmetric.WithReader(reader),
 			sdkmetric.WithResource(res),
 		)
 }
@@ -93,6 +99,10 @@ func initOtelProviders() (*sdktrace.TracerProvider, *sdkmetric.MeterProvider) {
 func getUser(ctx context.Context, id string) string {
 	_, span := tracer.Start(ctx, "getUser", oteltrace.WithAttributes(attribute.String("id", id)))
 	defer span.End()
+
+	// simulate user fetching with random delay
+	time.Sleep(time.Duration(50+rand.Intn(50)) * time.Millisecond)
+
 	if id == "123" {
 		return "otelchi tester"
 	}

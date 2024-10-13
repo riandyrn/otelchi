@@ -13,6 +13,7 @@ import (
 
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/examples/multi-services/utils"
+	otelchimetrics "github.com/riandyrn/otelchi/metrics"
 )
 
 const (
@@ -33,7 +34,11 @@ func main() {
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(otelchi.Middleware(
+		serviceName,
+		otelchi.WithChiRoutes(r),
+		otelchi.WithMetricRecorders(otelchimetrics.NewRequestDurationMs()),
+	))
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/name", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(generateName(r.Context(), tracer)))
@@ -48,6 +53,9 @@ func main() {
 func generateName(ctx context.Context, tracer trace.Tracer) string {
 	_, span := tracer.Start(ctx, "generateName")
 	defer span.End()
+
+	// simulate generate name with random delay
+	time.Sleep(time.Duration(50+rand.Intn(50)) * time.Millisecond)
 
 	rndNum := rand.New(rand.NewSource(time.Now().UnixNano())).Intn(100000)
 	return fmt.Sprintf("user_%v", rndNum)
