@@ -8,14 +8,13 @@ import (
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
-type ResponseInFlightConfig struct {
-	Meter otelmetric.Meter
-}
-
+// [NewResponseInFlight] creates a new instance of [requestInFlight].
 func NewResponseInFlight() otelchi.MetricsRecorder {
 	return &requestInFlight{}
 }
 
+// [requestInFlight] is a metrics recorder for recording requests in flight.
+// It records the number of requests currently being processed by the server.
 type requestInFlight struct {
 	requestsInFlightCounter otelmetric.Int64UpDownCounter
 }

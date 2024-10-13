@@ -9,10 +9,12 @@ import (
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
 
+// [NewRequestDurationMs] creates a new instance of [requestDurationMs].
 func NewRequestDurationMs() otelchi.MetricsRecorder {
 	return &requestDurationMs{}
 }
 
+// [requestDurationMs] is a metrics recorder for recording request duration in milliseconds.
 type requestDurationMs struct {
 	requestDurationHistogram otelmetric.Int64Histogram
 	startTime                time.Time
