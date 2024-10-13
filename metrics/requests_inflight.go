@@ -28,13 +28,9 @@ func (r *requestInFlight) RegisterMetric(ctx context.Context, cfg otelchi.Regist
 }
 
 func (r *requestInFlight) StartMetric(ctx context.Context, opts otelchi.MetricOpts) {
-	r.requestCount(ctx, opts.Measurement, 1)
+	r.requestsInFlightCounter.Add(ctx, 1, opts.Measurement)
 }
 
 func (r *requestInFlight) EndMetric(ctx context.Context, opts otelchi.MetricOpts) {
-	r.requestCount(ctx, opts.Measurement, -1)
-}
-
-func (r *requestInFlight) requestCount(ctx context.Context, attributes otelmetric.AddOption, count int64) {
-	r.requestsInFlightCounter.Add(ctx, count, attributes)
+	r.requestsInFlightCounter.Add(ctx, -1, opts.Measurement)
 }
