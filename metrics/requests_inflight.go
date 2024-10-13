@@ -23,7 +23,7 @@ type requestInFlight struct {
 func (r *requestInFlight) RegisterMetric(ctx context.Context, cfg otelchi.RegisterMetricConfig) {
 	requestsInFlightCounter, err := cfg.Meter.Int64UpDownCounter("requests_inflight")
 	if err != nil {
-		panic(fmt.Sprintf("failed to create requests_inflight histogram: %v", err))
+		panic(fmt.Sprintf("unable to create requests_inflight histogram: %v", err))
 	}
 	r.requestsInFlightCounter = requestsInFlightCounter
 }

@@ -16,12 +16,9 @@ func NewMeter(svcName string) error {
 	// notice that here we are using stdout exporter for simplicity
 	exporter, err := stdoutmetric.New(stdoutmetric.WithPrettyPrint())
 	if err != nil {
-		return fmt.Errorf("failed to create stdout exporter: %w", err)
+		return fmt.Errorf("unable to create stdout exporter: %w", err)
 	}
 
-	if err != nil {
-		return fmt.Errorf("unable to initialize exporter due: %w", err)
-	}
 	// initialize tracer provider
 	reader := sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(30*time.Second))
 	mp := sdkmetric.NewMeterProvider(

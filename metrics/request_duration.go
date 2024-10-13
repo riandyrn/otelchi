@@ -21,7 +21,7 @@ type requestDurationMs struct {
 func (r *requestDurationMs) RegisterMetric(ctx context.Context, cfg otelchi.RegisterMetricConfig) {
 	requestDurHistogram, err := cfg.Meter.Int64Histogram("request_duration_milliseconds")
 	if err != nil {
-		panic(fmt.Sprintf("failed to create request_duration_milliseconds histogram: %v", err))
+		panic(fmt.Sprintf("unable to create request_duration_milliseconds histogram: %v", err))
 	}
 	r.requestDurationHistogram = requestDurHistogram
 }
