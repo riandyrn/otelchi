@@ -231,6 +231,9 @@ func (ow *otelware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ow.handler.ServeHTTP(rrw.writer, r)
 
 	// end metric after executing the handler
+	metricOpts.ResponseData = ResponseData{
+		WrittenBytes: rrw.writtenBytes,
+	}
 	for _, recorder := range ow.metricRecorders {
 		recorder.EndMetric(ctx, metricOpts)
 	}

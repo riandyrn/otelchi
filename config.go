@@ -46,9 +46,15 @@ type RegisterMetricConfig struct {
 	Meter otelmetric.Meter
 }
 
+// [ResponseData] is used to store response metrics data.
+type ResponseData struct {
+	WrittenBytes int64
+}
+
 // [MetricOpts] is used to configure metric recording.
 type MetricOpts struct {
-	Measurement otelmetric.MeasurementOption
+	Measurement  otelmetric.MeasurementOption
+	ResponseData ResponseData
 }
 
 // [MetricsRecorder] is an interface for recording metrics.
