@@ -1,31 +1,31 @@
 package utils
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 )
 
 func NewMeter(svcName string) error {
-	// create otlp exporter, notice that here we are using insecure option
-	// because we just want to export the trace locally, also notice that
-	// here we don't set any endpoint because by default the otel will load
-	// the endpoint from the environment variable `OTEL_EXPORTER_OTLP_ENDPOINT`
-	exporter, err := otlpmetrichttp.New(
-		context.Background(),
-	)
+	// create otlp exporter
+	// notice that here we are using stdout exporter for simplicity
+	exporter, err := stdoutmetric.New(stdoutmetric.WithPrettyPrint())
+	if err != nil {
+		return fmt.Errorf("failed to create stdout exporter: %w", err)
+	}
+
 	if err != nil {
 		return fmt.Errorf("unable to initialize exporter due: %w", err)
 	}
 	// initialize tracer provider
-	tp := sdkmetric.NewMeterProvider(
-		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(30*time.Second))),
+	reader := sdkmetric.NewPeriodicReader(exporter, sdkmetric.WithInterval(30*time.Second))
+	mp := sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(reader),
 		sdkmetric.WithResource(resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceNameKey.String(svcName),
@@ -33,7 +33,7 @@ func NewMeter(svcName string) error {
 	)
 	// set tracer provider and propagator properly, this is to ensure all
 	// instrumentation library could run well
-	otel.SetMeterProvider(tp)
+	otel.SetMeterProvider(mp)
 
 	return nil
 }

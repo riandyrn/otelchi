@@ -81,7 +81,8 @@ func initOtelProviders() (*sdktrace.TracerProvider, *sdkmetric.MeterProvider) {
 			sdktrace.WithSampler(sdktrace.AlwaysSample()),
 			sdktrace.WithBatcher(traceExporter),
 			sdktrace.WithResource(res),
-		), sdkmetric.NewMeterProvider(
+		),
+		sdkmetric.NewMeterProvider(
 			sdkmetric.WithReader(sdkmetric.NewPeriodicReader(metricExporter,
 				sdkmetric.WithInterval(time.Second*30),
 			)),
