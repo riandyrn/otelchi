@@ -808,12 +808,6 @@ func TestSDKIntegrationWithWebsocket(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-
-		err = conn.WriteMessage(websocket.TextMessage, []byte("closed"))
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 	})
 
 	server := httptest.NewServer(router)
@@ -824,7 +818,7 @@ func TestSDKIntegrationWithWebsocket(t *testing.T) {
 	// Connect to the WebSocket server
 	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
 	require.NoError(t, err)
-	defer conn.Close()
+	conn.Close()
 
 	// get recorded spans
 	recordedSpans := sr.Ended()
