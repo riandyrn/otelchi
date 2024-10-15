@@ -5,6 +5,7 @@ go 1.22.0
 require (
 	github.com/felixge/httpsnoop v1.0.4
 	github.com/go-chi/chi/v5 v5.1.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/stretchr/testify v1.9.0
 	go.opentelemetry.io/otel v1.30.0
 	go.opentelemetry.io/otel/sdk v1.30.0
