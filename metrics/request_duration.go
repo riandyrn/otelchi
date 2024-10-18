@@ -1,68 +1,53 @@
 package metrics
 
 import (
+	"context"
 	"fmt"
-	"net/http"
 	"time"
 
-	"go.opentelemetry.io/otel"
 	otelmetric "go.opentelemetry.io/otel/metric"
-	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
-	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
-	metricNameRequestDurationMs      = "request_duration_milliseconds"
-	metricUnitRequestDurationMs      = "ms"
-	metricDescRequestDurationMs      = "Measures the latency of HTTP requests processed by the server, in milliseconds."
-	metricSchemaURLRequestDurationMs = semconv.SchemaURL
+	metricNameRequestDurationMs = "request_duration_milliseconds"
+	metricUnitRequestDurationMs = "ms"
+	metricDescRequestDurationMs = "Measures the latency of HTTP requests processed by the server, in milliseconds."
 )
 
-// [NewRequestDurationMs] returns a middleware that measures the latency of HTTP requests processed by the server, in milliseconds.
-func NewRequestDurationMs(serverName string, opts ...Option) func(next http.Handler) http.Handler {
-	cfg := config{}
-	for _, opt := range opts {
-		opt.apply(&cfg)
-	}
+// [NewRequestDurationMs] creates a new instance of [RequestDurationMs].
+func NewRequestDurationMs() MetricsRecorder {
+	return &RequestDurationMs{}
+}
 
-	if cfg.MeterProvider == nil {
-		cfg.MeterProvider = otel.GetMeterProvider()
-	}
-	meter := cfg.MeterProvider.Meter(
-		ScopeName,
-		otelmetric.WithSchemaURL(metricSchemaURLRequestDurationMs),
-		otelmetric.WithInstrumentationVersion(Version()),
-		otelmetric.WithInstrumentationAttributes(
-			semconv.ServiceName(serverName),
-		),
-	)
+// [RequestDurationMs] is a metrics recorder for recording request duration in milliseconds.
+type RequestDurationMs struct {
+	requestDurationHistogram otelmetric.Int64Histogram
+	startTime                time.Time
+}
 
-	httpRequestDurationMs, err := meter.Int64Histogram(
+// [RegisterMetric] registers the request duration metrics recorder.
+func (r *RequestDurationMs) RegisterMetric(ctx context.Context, cfg RegisterMetricConfig) {
+	requestDurationHistogram, err := cfg.Meter.Int64Histogram(
 		metricNameRequestDurationMs,
 		otelmetric.WithDescription(metricDescRequestDurationMs),
 		otelmetric.WithUnit(metricUnitRequestDurationMs),
 	)
 	if err != nil {
-		panic(fmt.Sprintf("unable to create %s histogram due to: %v", metricNameRequestDurationMs, err))
+		panic(fmt.Sprintf("unable to create %s histogram: %v", metricNameRequestDurationMs, err))
 	}
+	r.requestDurationHistogram = requestDurationHistogram
+}
 
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+// [StartMetric] starts the request duration metrics recorder.
+func (r *RequestDurationMs) StartMetric(ctx context.Context, opts MetricOpts) {
+	r.startTime = time.Now()
+}
 
-			attributes := httpconv.ServerRequest(serverName, r)
-
-			startTime := time.Now()
-
-			next.ServeHTTP(w, r)
-
-			// record the response size
-			duration := time.Since(startTime)
-			httpRequestDurationMs.Record(ctx,
-				int64(duration.Milliseconds()),
-				otelmetric.WithAttributes(attributes...),
-			)
-		}
-		return http.HandlerFunc(fn)
-	}
+// [EndMetric] ends the request duration metrics recorder.
+func (r *RequestDurationMs) EndMetric(ctx context.Context, opts MetricOpts) {
+	duration := time.Since(r.startTime)
+	r.requestDurationHistogram.Record(ctx,
+		int64(duration.Milliseconds()),
+		opts.Measurement,
+	)
 }
