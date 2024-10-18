@@ -3,18 +3,17 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/riandyrn/otelchi"
+	"github.com/riandyrn/otelchi/examples/multi-services/utils"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-
-	"github.com/riandyrn/otelchi"
-	"github.com/riandyrn/otelchi/examples/multi-services/utils"
 )
 
 const (
@@ -29,11 +28,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to initialize tracer due: %v", err)
 	}
-
-	if err = utils.NewMeter(serviceName); err != nil {
-		log.Fatalf("unable to initialize meter provider due: %v", err)
-	}
-
 	// define router
 	r := chi.NewRouter()
 	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
@@ -72,7 +66,7 @@ func getRandomName(ctx context.Context, tracer trace.Tracer) (string, error) {
 	defer resp.Body.Close()
 
 	// read response body
-	data, err := io.ReadAll(resp.Body)
+	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		err = fmt.Errorf("unable to read response data due: %w", err)
 		span.RecordError(err)
