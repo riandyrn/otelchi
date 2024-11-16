@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/gorilla/websocket"
 	"github.com/riandyrn/otelchi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -705,11 +708,12 @@ func TestWithPublicEndpointFn(t *testing.T) {
 	}
 }
 
-func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, attrs ...attribute.KeyValue) {
+func assertSpan(t *testing.T, span sdktrace.ReadOnlySpan, name string, kind trace.SpanKind, status codes.Code, attrs ...attribute.KeyValue) {
 	t.Helper()
 
 	assert.Equal(t, name, span.Name())
 	assert.Equal(t, kind, span.SpanKind())
+	assert.Equal(t, status, span.Status().Code)
 
 	got := make(map[attribute.Key]attribute.Value, len(span.Attributes()))
 	for _, a := range span.Attributes() {
@@ -752,16 +756,20 @@ func newSDKTestRouter(serverName string, withChiRoutes bool, opts ...otelchi.Opt
 type spanValueCheck struct {
 	Name       string
 	Kind       trace.SpanKind
+	Status     codes.Code
 	Attributes []attribute.KeyValue
 }
 
 func getSemanticAttributes(serverName string, httpStatusCode int, httpMethod, httpRoute string) []attribute.KeyValue {
-	return []attribute.KeyValue{
+	attrs := []attribute.KeyValue{
 		attribute.String("net.host.name", serverName),
-		attribute.Int("http.status_code", httpStatusCode),
 		attribute.String("http.method", httpMethod),
 		attribute.String("http.route", httpRoute),
 	}
+	if httpStatusCode != 0 {
+		attrs = append(attrs, attribute.Int("http.status_code", httpStatusCode))
+	}
+	return attrs
 }
 
 func checkSpans(t *testing.T, spans []sdktrace.ReadOnlySpan, valueChecks []spanValueCheck) {
@@ -770,7 +778,7 @@ func checkSpans(t *testing.T, spans []sdktrace.ReadOnlySpan, valueChecks []spanV
 	for i := 0; i < len(spans); i++ {
 		span := spans[i]
 		valueCheck := valueChecks[i]
-		assertSpan(t, span, valueCheck.Name, valueCheck.Kind, valueCheck.Attributes...)
+		assertSpan(t, span, valueCheck.Name, valueCheck.Kind, valueCheck.Status, valueCheck.Attributes...)
 	}
 }
 
@@ -779,4 +787,57 @@ func executeRequests(router *chi.Mux, reqs []*http.Request) {
 	for _, r := range reqs {
 		router.ServeHTTP(w, r)
 	}
+}
+
+func TestSDKIntegrationWithWebsocket(t *testing.T) {
+	// define router & span recorder
+	router, sr := newSDKTestRouter("websocket", true)
+
+	var upgrader = websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool {
+			return true
+		},
+	}
+
+	// define route
+	router.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		// upgrade to websocket
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer conn.Close()
+	})
+
+	server := httptest.NewServer(router)
+	defer server.Close()
+
+	u := url.URL{Scheme: "ws", Host: server.URL[7:], Path: "/ws"}
+
+	// Connect to the WebSocket server
+	conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+	require.NoError(t, err)
+	conn.Close()
+
+	// get recorded spans
+	recordedSpans := sr.Ended()
+
+	// ensure that we have 1 recorded spans
+	require.Len(t, recordedSpans, 1)
+
+	// ensure span values
+	checkSpans(t, recordedSpans, []spanValueCheck{
+		{
+			Name:   "/ws",
+			Kind:   trace.SpanKindServer,
+			Status: codes.Unset,
+			Attributes: getSemanticAttributes(
+				"websocket",
+				0,
+				"GET",
+				"/ws",
+			),
+		},
+	})
 }
