@@ -1,4 +1,4 @@
-package metrics_test
+package metric_test
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/riandyrn/otelchi/metrics"
+	"github.com/riandyrn/otelchi/metric"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -21,8 +21,8 @@ func TestResponseSizeBytes(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
 	provider := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
 
-	baseCfg := metrics.NewBaseConfig("test-server", metrics.WithMeterProvider(provider))
-	middleware := metrics.NewResponseSizeBytes(baseCfg)
+	baseCfg := metric.NewBaseConfig("test-server", metric.WithMeterProvider(provider))
+	middleware := metric.NewResponseSizeBytes(baseCfg)
 
 	router := chi.NewRouter()
 	router.Use(middleware)
