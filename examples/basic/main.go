@@ -46,18 +46,16 @@ func main() {
 	mp := initMeter()
 	otel.SetMeterProvider(mp)
 
+	// define base config for metric middlewares
+	baseCfg := otelchimetrics.NewBaseConfig(serverName, otelchimetrics.WithMeterProvider(mp))
+
 	// define router
 	r := chi.NewRouter()
 	r.Use(
 		otelchi.Middleware(serverName, otelchi.WithChiRoutes(r)),
-		otelchimetrics.Middleware(serverName,
-			otelchimetrics.WithMetricRecorders(
-				// add some metrics
-				otelchimetrics.NewRequestDurationMs(),
-				otelchimetrics.NewResponseSizeBytes(),
-				otelchimetrics.NewRequestInFlight(),
-			),
-		),
+		otelchimetrics.NewRequestDurationMillis(baseCfg),
+		otelchimetrics.NewRequestInFlight(baseCfg),
+		otelchimetrics.NewResponseSizeBytes(baseCfg),
 	)
 	r.HandleFunc("/users/{id:[0-9]+}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
