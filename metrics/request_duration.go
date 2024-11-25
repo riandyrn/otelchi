@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	metricNameRequestDurationMs = "request_duration_milliseconds"
+	metricNameRequestDurationMs = "request_duration_millis"
 	metricUnitRequestDurationMs = "ms"
 	metricDescRequestDurationMs = "Measures the latency of HTTP requests processed by the server, in milliseconds."
 )
@@ -32,13 +32,13 @@ func NewRequestDurationMillisMiddleware(cfg Config) func(next http.Handler) http
 			rrw := getRRW(w)
 			defer putRRW(rrw)
 
-			// start metric before executing the handler
+			// capture the start time of the request
 			startTime := time.Now()
 
 			// execute next http handler
 			next.ServeHTTP(rrw.writer, r)
 
-			// end metric after executing the handler
+			// record the request duration
 			duration := time.Since(startTime)
 			histogram.Record(
 				r.Context(),

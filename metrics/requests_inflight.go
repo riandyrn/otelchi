@@ -32,7 +32,7 @@ func NewRequestInFlightMiddleware(cfg Config) func(next http.Handler) http.Handl
 			rrw := getRRW(w)
 			defer putRRW(rrw)
 
-			// start metric before executing the handler
+			// increase the number of requests in flight
 			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
 				httpconv.ServerRequest(cfg.serverName, r)...,
 			))
@@ -40,7 +40,7 @@ func NewRequestInFlightMiddleware(cfg Config) func(next http.Handler) http.Handl
 			// execute next http handler
 			next.ServeHTTP(rrw.writer, r)
 
-			// end metric after executing the handler
+			// decrease the number of requests in flight
 			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
 				httpconv.ServerRequest(cfg.serverName, r)...,
 			))

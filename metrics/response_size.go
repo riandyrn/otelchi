@@ -10,7 +10,7 @@ import (
 
 const (
 	metricNameResponseSizeBytes = "response_size_bytes"
-	metricUnitResponseSizeBytes = "By"
+	metricUnitResponseSizeBytes = "bytes"
 	metricDescResponseSizeBytes = "Measures the size of the response in bytes."
 )
 
@@ -31,10 +31,10 @@ func NewResponseSizeBytesMiddleware(cfg Config) func(next http.Handler) http.Han
 			rrw := getRRW(w)
 			defer putRRW(rrw)
 
-			// start metric before executing the handler
+			// execute next http handler
 			next.ServeHTTP(rrw.writer, r)
 
-			// end metric after executing the handler
+			// record the response size
 			histogram.Record(
 				r.Context(),
 				int64(rrw.writtenBytes),
