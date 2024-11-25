@@ -3,7 +3,9 @@ package metrics
 import (
 	"context"
 
+	"go.opentelemetry.io/otel"
 	otelmetric "go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 )
 
 const (
@@ -70,4 +72,34 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 	return optionFunc(func(cfg *config) {
 		cfg.MeterProvider = provider
 	})
+}
+
+type MiddlewareConfig struct {
+	Meter      otelmetric.Meter
+	ServerName string
+}
+
+func NewMiddlewareConfig(serverName string, opts ...Option) *MiddlewareConfig {
+	// init base config
+	cfg := config{}
+	for _, opt := range opts {
+		opt.apply(&cfg)
+	}
+
+	if cfg.MeterProvider == nil {
+		cfg.MeterProvider = otel.GetMeterProvider()
+	}
+	meter := cfg.MeterProvider.Meter(
+		ScopeName,
+		otelmetric.WithSchemaURL(semconv.SchemaURL),
+		otelmetric.WithInstrumentationVersion(Version()),
+		otelmetric.WithInstrumentationAttributes(
+			semconv.ServiceName(serverName),
+		),
+	)
+
+	return &MiddlewareConfig{
+		Meter:      meter,
+		ServerName: serverName,
+	}
 }

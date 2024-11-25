@@ -3,8 +3,10 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	otelmetric "go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
@@ -44,4 +46,37 @@ func (r *RequestInFlight) StartMetric(ctx context.Context, opts MetricOpts) {
 // [EndMetric] decrements the number of requests in flight.
 func (r *RequestInFlight) EndMetric(ctx context.Context, opts MetricOpts) {
 	r.requestInFlightCounter.Add(ctx, -1, opts.Measurement)
+}
+
+func NewRequestInFlightMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
+	// init metric, here we are using counter for capturing request in flight
+	counter, err := cfg.Meter.Int64UpDownCounter(
+		metricNameRequestInFlight,
+		otelmetric.WithDescription(metricDescRequestInFlight),
+		otelmetric.WithUnit(metricUnitRequestInFlight),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("unable to create %s counter: %v", metricNameRequestInFlight, err))
+	}
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// get recording response writer
+			rrw := getRRW(w)
+			defer putRRW(rrw)
+
+			// start metric before executing the handler
+			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
+				httpconv.ServerRequest(cfg.ServerName, r)...,
+			))
+
+			// execute next http handler
+			next.ServeHTTP(rrw.writer, r)
+
+			// end metric after executing the handler
+			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
+				httpconv.ServerRequest(cfg.ServerName, r)...,
+			))
+		})
+	}
 }
