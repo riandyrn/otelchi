@@ -1,8 +1,10 @@
 package metrics
 
 import (
-	"context"
+	"net/http"
+	"sync"
 
+	"github.com/felixge/httpsnoop"
 	"go.opentelemetry.io/otel"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
@@ -12,84 +14,46 @@ const (
 	ScopeName = "github.com/riandyrn/otelchi/metrics"
 )
 
-// config is used to configure the metrics middleware.
-type config struct {
-	MeterProvider   otelmetric.MeterProvider
-	MetricRecorders []MetricsRecorder
+// Config is used to configure the metrics middleware.
+type Config struct {
+	// for initialization
+	meterProvider otelmetric.MeterProvider
+
+	// actual config state
+	meter      otelmetric.Meter
+	serverName string
 }
 
 // Option specifies instrumentation configuration options.
 type Option interface {
-	apply(*config)
+	apply(*Config)
 }
 
-type optionFunc func(*config)
+type optionFunc func(*Config)
 
-func (o optionFunc) apply(c *config) {
+func (o optionFunc) apply(c *Config) {
 	o(c)
-}
-
-// [RegisterMetricConfig] is used to configure metric registration.
-type RegisterMetricConfig struct {
-	Meter otelmetric.Meter
-}
-
-// [ResponseData] is used to store response metrics data.
-type ResponseData struct {
-	WrittenBytes int64
-}
-
-// [MetricOpts] is used to configure metric recording.
-type MetricOpts struct {
-	Measurement  otelmetric.MeasurementOption
-	ResponseData ResponseData
-}
-
-// [MetricsRecorder] is an interface for recording metrics.
-type MetricsRecorder interface {
-	// [RegisterMetric] is called when a metric should be registered.
-	RegisterMetric(ctx context.Context, cfg RegisterMetricConfig)
-
-	// [StartMetric] is called when a metric recording should start.
-	StartMetric(ctx context.Context, opts MetricOpts)
-
-	// [EndMetric] is called when a metric recording should end.
-	// This could be used to record the actual metric.
-	EndMetric(ctx context.Context, opts MetricOpts)
-}
-
-// [WithMetricRecorders] specifies metric recorders to use for recording metrics.
-// If none are specified, no metrics will be recorded.
-func WithMetricRecorders(recorders ...MetricsRecorder) Option {
-	return optionFunc(func(cfg *config) {
-		cfg.MetricRecorders = recorders
-	})
 }
 
 // WithMeterProvider specifies a meter provider to use for creating a meter.
 // If none is specified, the global provider is used.
 func WithMeterProvider(provider otelmetric.MeterProvider) Option {
-	return optionFunc(func(cfg *config) {
-		cfg.MeterProvider = provider
+	return optionFunc(func(cfg *Config) {
+		cfg.meterProvider = provider
 	})
 }
 
-type MiddlewareConfig struct {
-	Meter      otelmetric.Meter
-	ServerName string
-}
-
-func NewMiddlewareConfig(serverName string, opts ...Option) *MiddlewareConfig {
+func NewConfig(serverName string, opts ...Option) Config {
 	// init base config
-	cfg := config{}
+	cfg := Config{}
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
 
-	if cfg.MeterProvider == nil {
-		cfg.MeterProvider = otel.GetMeterProvider()
+	if cfg.meterProvider == nil {
+		cfg.meterProvider = otel.GetMeterProvider()
 	}
-	meter := cfg.MeterProvider.Meter(
+	cfg.meter = cfg.meterProvider.Meter(
 		ScopeName,
 		otelmetric.WithSchemaURL(semconv.SchemaURL),
 		otelmetric.WithInstrumentationVersion(Version()),
@@ -98,8 +62,49 @@ func NewMiddlewareConfig(serverName string, opts ...Option) *MiddlewareConfig {
 		),
 	)
 
-	return &MiddlewareConfig{
-		Meter:      meter,
-		ServerName: serverName,
-	}
+	return cfg
+}
+
+// [recordingResponseWriter] is a wrapper around [http.ResponseWriter] that records the number of bytes written.
+type recordingResponseWriter struct {
+	writer       http.ResponseWriter
+	written      bool
+	writtenBytes int64
+}
+
+var rrwPool = &sync.Pool{
+	New: func() interface{} {
+		return &recordingResponseWriter{}
+	},
+}
+
+func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
+	rrw := rrwPool.Get().(*recordingResponseWriter)
+	rrw.written = false
+	rrw.writtenBytes = 0
+	rrw.writer = httpsnoop.Wrap(writer, httpsnoop.Hooks{
+		Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+			return func(b []byte) (int, error) {
+				if !rrw.written {
+					rrw.written = true
+					rrw.writtenBytes += int64(len(b))
+				}
+				return next(b)
+			}
+		},
+		WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+			return func(statusCode int) {
+				if !rrw.written {
+					rrw.written = true
+				}
+				next(statusCode)
+			}
+		},
+	})
+	return rrw
+}
+
+func putRRW(rrw *recordingResponseWriter) {
+	rrw.writer = nil
+	rrwPool.Put(rrw)
 }

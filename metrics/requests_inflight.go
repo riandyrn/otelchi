@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -15,42 +14,10 @@ const (
 	metricDescRequestInFlight = "Measures the number of requests currently being processed by the server."
 )
 
-// [NewRequestInFlight] creates a new instance of [RequestInFlight].
-func NewRequestInFlight() MetricsRecorder {
-	return &RequestInFlight{}
-}
-
 // [RequestInFlight] is a metrics recorder for recording the number of requests in flight.
-type RequestInFlight struct {
-	requestInFlightCounter otelmetric.Int64UpDownCounter
-}
-
-// [RegisterMetric] registers the request in flight metrics recorder.
-func (r *RequestInFlight) RegisterMetric(ctx context.Context, cfg RegisterMetricConfig) {
-	requestInFlightCounter, err := cfg.Meter.Int64UpDownCounter(
-		metricNameRequestInFlight,
-		otelmetric.WithDescription(metricDescRequestInFlight),
-		otelmetric.WithUnit(metricUnitRequestInFlight),
-	)
-	if err != nil {
-		panic(fmt.Sprintf("unable to create %s counter: %v", metricNameRequestInFlight, err))
-	}
-	r.requestInFlightCounter = requestInFlightCounter
-}
-
-// [StartMetric] increments the number of requests in flight.
-func (r *RequestInFlight) StartMetric(ctx context.Context, opts MetricOpts) {
-	r.requestInFlightCounter.Add(ctx, 1, opts.Measurement)
-}
-
-// [EndMetric] decrements the number of requests in flight.
-func (r *RequestInFlight) EndMetric(ctx context.Context, opts MetricOpts) {
-	r.requestInFlightCounter.Add(ctx, -1, opts.Measurement)
-}
-
-func NewRequestInFlightMiddleware(cfg MiddlewareConfig) func(next http.Handler) http.Handler {
+func NewRequestInFlightMiddleware(cfg Config) func(next http.Handler) http.Handler {
 	// init metric, here we are using counter for capturing request in flight
-	counter, err := cfg.Meter.Int64UpDownCounter(
+	counter, err := cfg.meter.Int64UpDownCounter(
 		metricNameRequestInFlight,
 		otelmetric.WithDescription(metricDescRequestInFlight),
 		otelmetric.WithUnit(metricUnitRequestInFlight),
@@ -67,7 +34,7 @@ func NewRequestInFlightMiddleware(cfg MiddlewareConfig) func(next http.Handler) 
 
 			// start metric before executing the handler
 			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.ServerName, r)...,
+				httpconv.ServerRequest(cfg.serverName, r)...,
 			))
 
 			// execute next http handler
@@ -75,7 +42,7 @@ func NewRequestInFlightMiddleware(cfg MiddlewareConfig) func(next http.Handler) 
 
 			// end metric after executing the handler
 			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.ServerName, r)...,
+				httpconv.ServerRequest(cfg.serverName, r)...,
 			))
 		})
 	}
