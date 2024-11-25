@@ -15,7 +15,7 @@ const (
 	metricDescRequestDurationMs = "Measures the latency of HTTP requests processed by the server, in milliseconds."
 )
 
-func NewRequestDurationMillisMiddleware(cfg Config) func(next http.Handler) http.Handler {
+func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing request duration
 	histogram, err := cfg.meter.Int64Histogram(
 		metricNameRequestDurationMs,

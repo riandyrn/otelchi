@@ -14,8 +14,8 @@ const (
 	ScopeName = "github.com/riandyrn/otelchi/metrics"
 )
 
-// Config is used to configure the metrics middleware.
-type Config struct {
+// BaseConfig is used to configure the metrics middleware.
+type BaseConfig struct {
 	// for initialization
 	meterProvider otelmetric.MeterProvider
 
@@ -26,26 +26,26 @@ type Config struct {
 
 // Option specifies instrumentation configuration options.
 type Option interface {
-	apply(*Config)
+	apply(*BaseConfig)
 }
 
-type optionFunc func(*Config)
+type optionFunc func(*BaseConfig)
 
-func (o optionFunc) apply(c *Config) {
+func (o optionFunc) apply(c *BaseConfig) {
 	o(c)
 }
 
 // WithMeterProvider specifies a meter provider to use for creating a meter.
 // If none is specified, the global provider is used.
 func WithMeterProvider(provider otelmetric.MeterProvider) Option {
-	return optionFunc(func(cfg *Config) {
+	return optionFunc(func(cfg *BaseConfig) {
 		cfg.meterProvider = provider
 	})
 }
 
-func NewConfig(serverName string, opts ...Option) Config {
+func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
-	cfg := Config{}
+	cfg := BaseConfig{}
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}

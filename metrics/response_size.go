@@ -14,7 +14,7 @@ const (
 	metricDescResponseSizeBytes = "Measures the size of the response in bytes."
 )
 
-func NewResponseSizeBytesMiddleware(cfg Config) func(next http.Handler) http.Handler {
+func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing response size
 	histogram, err := cfg.meter.Int64Histogram(
 		metricNameResponseSizeBytes,

@@ -15,7 +15,7 @@ const (
 )
 
 // [RequestInFlight] is a metrics recorder for recording the number of requests in flight.
-func NewRequestInFlightMiddleware(cfg Config) func(next http.Handler) http.Handler {
+func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using counter for capturing request in flight
 	counter, err := cfg.meter.Int64UpDownCounter(
 		metricNameRequestInFlight,
