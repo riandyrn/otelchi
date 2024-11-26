@@ -8,18 +8,25 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 
+	"go.opentelemetry.io/otel/exporters/stdout/stdoutmetric"
 	stdout "go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	oteltrace "go.opentelemetry.io/otel/trace"
 )
 
 var tracer oteltrace.Tracer
+
+const (
+	serverName = "my-server"
+)
 
 func main() {
 	// initialize trace provider
@@ -35,9 +42,21 @@ func main() {
 	// initialize tracer
 	tracer = otel.Tracer("mux-server")
 
+	// initialize meter provider & set global meter provider
+	mp := initMeter()
+	otel.SetMeterProvider(mp)
+
+	// define base config for metric middlewares
+	baseCfg := otelchimetric.NewBaseConfig(serverName, otelchimetric.WithMeterProvider(mp))
+
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware("my-server", otelchi.WithChiRoutes(r)))
+	r.Use(
+		otelchi.Middleware(serverName, otelchi.WithChiRoutes(r)),
+		otelchimetric.NewRequestDurationMillis(baseCfg),
+		otelchimetric.NewRequestInFlight(baseCfg),
+		otelchimetric.NewResponseSizeBytes(baseCfg),
+	)
 	r.HandleFunc("/users/{id:[0-9]+}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
 		name := getUser(r.Context(), id)
@@ -68,6 +87,17 @@ func initTracerProvider() *sdktrace.TracerProvider {
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
+	)
+}
+
+func initMeter() *sdkmetric.MeterProvider {
+	exp, err := stdoutmetric.New()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return sdkmetric.NewMeterProvider(
+		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exp)),
 	)
 }
 
