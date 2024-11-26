@@ -28,15 +28,11 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// get recording response writer
-			rrw := getRRW(w)
-			defer putRRW(rrw)
-
 			// capture the start time of the request
 			startTime := time.Now()
 
 			// execute next http handler
-			next.ServeHTTP(rrw.writer, r)
+			next.ServeHTTP(w, r)
 
 			// record the request duration
 			duration := time.Since(startTime)

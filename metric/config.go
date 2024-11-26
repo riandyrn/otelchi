@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	ScopeName = "github.com/riandyrn/otelchi/metrics"
+	ScopeName = "github.com/riandyrn/otelchi/metric"
 )
 
 // BaseConfig is used to configure the metrics middleware.

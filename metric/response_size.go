@@ -10,7 +10,7 @@ import (
 
 const (
 	metricNameResponseSizeBytes = "response_size_bytes"
-	metricUnitResponseSizeBytes = "bytes"
+	metricUnitResponseSizeBytes = "By"
 	metricDescResponseSizeBytes = "Measures the size of the response in bytes."
 )
 

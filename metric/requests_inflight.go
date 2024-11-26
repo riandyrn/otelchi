@@ -28,17 +28,13 @@ func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// get recording response writer
-			rrw := getRRW(w)
-			defer putRRW(rrw)
-
 			// increase the number of requests in flight
 			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
 				httpconv.ServerRequest(cfg.serverName, r)...,
 			))
 
 			// execute next http handler
-			next.ServeHTTP(rrw.writer, r)
+			next.ServeHTTP(w, r)
 
 			// decrease the number of requests in flight
 			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
