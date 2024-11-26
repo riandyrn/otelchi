@@ -17,7 +17,7 @@ const (
 // [RequestInFlight] is a metrics recorder for recording the number of requests in flight.
 func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using counter for capturing request in flight
-	counter, err := cfg.meter.Int64UpDownCounter(
+	counter, err := cfg.Meter.Int64UpDownCounter(
 		metricNameRequestInFlight,
 		otelmetric.WithDescription(metricDescRequestInFlight),
 		otelmetric.WithUnit(metricUnitRequestInFlight),
@@ -28,18 +28,17 @@ func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// define metric attributes
+			attrs := otelmetric.WithAttributes(httpconv.ServerRequest(cfg.ServerName, r)...)
+
 			// increase the number of requests in flight
-			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.serverName, r)...,
-			))
+			counter.Add(r.Context(), 1, attrs)
 
 			// execute next http handler
 			next.ServeHTTP(w, r)
 
 			// decrease the number of requests in flight
-			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.serverName, r)...,
-			))
+			counter.Add(r.Context(), -1, attrs)
 		})
 	}
 }

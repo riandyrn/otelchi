@@ -20,8 +20,8 @@ type BaseConfig struct {
 	meterProvider otelmetric.MeterProvider
 
 	// actual config state
-	meter      otelmetric.Meter
-	serverName string
+	Meter      otelmetric.Meter
+	ServerName string
 }
 
 // Option specifies instrumentation configuration options.
@@ -45,7 +45,9 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 
 func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
-	cfg := BaseConfig{}
+	cfg := BaseConfig{
+		ServerName: serverName,
+	}
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
@@ -53,7 +55,7 @@ func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	if cfg.meterProvider == nil {
 		cfg.meterProvider = otel.GetMeterProvider()
 	}
-	cfg.meter = cfg.meterProvider.Meter(
+	cfg.Meter = cfg.meterProvider.Meter(
 		ScopeName,
 		otelmetric.WithSchemaURL(semconv.SchemaURL),
 		otelmetric.WithInstrumentationVersion(Version()),

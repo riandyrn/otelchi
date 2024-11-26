@@ -17,7 +17,7 @@ const (
 
 func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing request duration
-	histogram, err := cfg.meter.Int64Histogram(
+	histogram, err := cfg.Meter.Int64Histogram(
 		metricNameRequestDurationMs,
 		otelmetric.WithDescription(metricDescRequestDurationMs),
 		otelmetric.WithUnit(metricUnitRequestDurationMs),
@@ -40,7 +40,7 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 				r.Context(),
 				int64(duration.Milliseconds()),
 				otelmetric.WithAttributes(
-					httpconv.ServerRequest(cfg.serverName, r)...,
+					httpconv.ServerRequest(cfg.ServerName, r)...,
 				),
 			)
 		})
