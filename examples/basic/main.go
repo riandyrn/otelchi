@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
-	otelchimetrics "github.com/riandyrn/otelchi/metrics"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/propagation"
@@ -46,18 +46,16 @@ func main() {
 	mp := initMeter()
 	otel.SetMeterProvider(mp)
 
+	// define base config for metric middlewares
+	baseCfg := otelchimetric.NewBaseConfig(serverName, otelchimetric.WithMeterProvider(mp))
+
 	// define router
 	r := chi.NewRouter()
 	r.Use(
 		otelchi.Middleware(serverName, otelchi.WithChiRoutes(r)),
-		otelchimetrics.Middleware(serverName,
-			otelchimetrics.WithMetricRecorders(
-				// add some metrics
-				otelchimetrics.NewRequestDurationMs(),
-				otelchimetrics.NewResponseSizeBytes(),
-				otelchimetrics.NewRequestInFlight(),
-			),
-		),
+		otelchimetric.NewRequestDurationMillis(baseCfg),
+		otelchimetric.NewRequestInFlight(baseCfg),
+		otelchimetric.NewResponseSizeBytes(baseCfg),
 	)
 	r.HandleFunc("/users/{id:[0-9]+}", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := chi.URLParam(r, "id")
