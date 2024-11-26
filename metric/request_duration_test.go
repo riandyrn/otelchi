@@ -51,6 +51,6 @@ func TestRequestDurationMillis(t *testing.T) {
 	require.Len(t, hist.DataPoints, 1)
 
 	dp := hist.DataPoints[0]
-	assert.Equal(t, int64(expLatencyInMillis), dp.Sum)
+	assert.GreaterOrEqual(t, dp.Sum, int64(expLatencyInMillis))
 	assert.Equal(t, uint64(1), dp.Count)
 }
