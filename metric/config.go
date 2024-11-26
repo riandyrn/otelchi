@@ -18,10 +18,10 @@ const (
 type BaseConfig struct {
 	// for initialization
 	meterProvider otelmetric.MeterProvider
-	serverName    string
 
 	// actual config state
-	Meter otelmetric.Meter
+	Meter      otelmetric.Meter
+	ServerName string
 }
 
 // Option specifies instrumentation configuration options.
@@ -45,7 +45,9 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 
 func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
-	cfg := BaseConfig{}
+	cfg := BaseConfig{
+		ServerName: serverName,
+	}
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}

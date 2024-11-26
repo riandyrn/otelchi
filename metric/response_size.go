@@ -39,7 +39,7 @@ func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 				r.Context(),
 				int64(rrw.writtenBytes),
 				otelmetric.WithAttributes(
-					httpconv.ServerRequest(cfg.serverName, r)...,
+					httpconv.ServerRequest(cfg.ServerName, r)...,
 				),
 			)
 		})

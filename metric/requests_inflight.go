@@ -30,7 +30,7 @@ func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// increase the number of requests in flight
 			counter.Add(r.Context(), 1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.serverName, r)...,
+				httpconv.ServerRequest(cfg.ServerName, r)...,
 			))
 
 			// execute next http handler
@@ -38,7 +38,7 @@ func NewRequestInFlight(cfg BaseConfig) func(next http.Handler) http.Handler {
 
 			// decrease the number of requests in flight
 			counter.Add(r.Context(), -1, otelmetric.WithAttributes(
-				httpconv.ServerRequest(cfg.serverName, r)...,
+				httpconv.ServerRequest(cfg.ServerName, r)...,
 			))
 		})
 	}

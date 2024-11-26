@@ -40,7 +40,7 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 				r.Context(),
 				int64(duration.Milliseconds()),
 				otelmetric.WithAttributes(
-					httpconv.ServerRequest(cfg.serverName, r)...,
+					httpconv.ServerRequest(cfg.ServerName, r)...,
 				),
 			)
 		})
