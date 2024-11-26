@@ -16,7 +16,7 @@ const (
 
 func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 	// init metric, here we are using histogram for capturing response size
-	histogram, err := cfg.meter.Int64Histogram(
+	histogram, err := cfg.Meter.Int64Histogram(
 		metricNameResponseSizeBytes,
 		otelmetric.WithDescription(metricDescResponseSizeBytes),
 		otelmetric.WithUnit(metricUnitResponseSizeBytes),
