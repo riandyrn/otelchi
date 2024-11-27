@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.11.0] - 2024-11-27
+
+### Added
+
+- Add metric package as middleware `go-chi/chi`, currently only support `request_duration_milliseconds`, `requests_inflight`, and `response_size_bytes` metric. ([#69])
+
+### Removed
+
+- Remove duplication of traceware state by shallow copy the config. ([#75])
+
 ## [0.10.1] - 2024-10-27
 
 ### Changed
@@ -204,7 +214,9 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
+[#75]: https://github.com/riandyrn/otelchi/pull/75
 [#70]: https://github.com/riandyrn/otelchi/pull/70
+[#69]: https://github.com/riandyrn/otelchi/pull/69
 [#67]: https://github.com/riandyrn/otelchi/pull/67
 [#64]: https://github.com/riandyrn/otelchi/pull/64
 [#63]: https://github.com/riandyrn/otelchi/pull/63
@@ -231,7 +243,8 @@ It contains instrumentation for trace and depends on:
 [#2]: https://github.com/riandyrn/otelchi/pull/2
 [#1]: https://github.com/riandyrn/otelchi/pull/1
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.10.1...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.11.0
 [0.10.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.10.1
 [0.10.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.10.0
 [0.9.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.9.0
