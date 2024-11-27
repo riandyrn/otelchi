@@ -14,9 +14,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Add metric package as middleware `go-chi/chi`, support `request_duration_millis`, `requests_inflight`, and `response_size_bytes` metric. ([#69])
 
-### Removed
+### Changed
 
-- Remove duplication of traceware state by shallow copy the config. ([#75])
+- Upgrade `go.opentelemetry.io/otel`, `go.opentelemetry.io/otel/sdk`, & `go.opentelemetry.io/otel/trace` to `v1.32.0`. ([#74])
 
 ## [0.10.1] - 2024-10-27
 
@@ -214,7 +214,7 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
-[#75]: https://github.com/riandyrn/otelchi/pull/75
+[#74]: https://github.com/riandyrn/otelchi/pull/74
 [#70]: https://github.com/riandyrn/otelchi/pull/70
 [#69]: https://github.com/riandyrn/otelchi/pull/69
 [#67]: https://github.com/riandyrn/otelchi/pull/67
