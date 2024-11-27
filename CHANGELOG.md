@@ -12,7 +12,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- Add metric package as middleware `go-chi/chi`, currently only support `request_duration_milliseconds`, `requests_inflight`, and `response_size_bytes` metric. ([#69])
+- Add metric package as middleware `go-chi/chi`, support `request_duration_millis`, `requests_inflight`, and `response_size_bytes` metric. ([#69])
 
 ### Removed
 
