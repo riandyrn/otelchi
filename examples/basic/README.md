@@ -2,7 +2,7 @@
 
 An HTTP server using go-chi/chi and instrumentation. The server has a `/users/{id:[0-9]+}` endpoint. The server generates span information to `stdout`.
 
-These instructions expect you to have [docker compose](https://docs.docker.com/compose/) installed.
+These instructions expect you to have [Docker Compose](https://docs.docker.com/compose/) installed.
 
 Bring up the `mux-server` and `mux-client` services to run the
 example:
