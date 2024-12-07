@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'front-service'
+    static_configs:
+      - targets: ['front-svc:8090']
+
+  - job_name: 'back-service'
+    static_configs:
+      - targets: ['back-svc:8091']
