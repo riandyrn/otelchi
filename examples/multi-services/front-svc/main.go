@@ -9,9 +9,9 @@ import (
 	"os"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/examples/multi-services/utils"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -30,16 +30,20 @@ func main() {
 		log.Fatalf("unable to initialize tracer due: %v", err)
 	}
 
-	// initialize metrics middleware
-	metricsMiddleware, err := utils.NewMetricProvider(serviceName)
+	// setup metrics
+	metricConfig, err := utils.NewMetricConfig(serviceName)
 	if err != nil {
 		log.Fatalf("unable to initialize metrics due: %v", err)
 	}
 
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
-	r.Use(metricsMiddleware)
+	r.Use(
+		otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)),
+		otelchimetric.NewRequestDurationMillis(metricConfig),
+		otelchimetric.NewRequestInFlight(metricConfig),
+		otelchimetric.NewResponseSizeBytes(metricConfig),
+	)
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/greet", func(w http.ResponseWriter, r *http.Request) {
 		name, err := getRandomName(r.Context(), tracer)
@@ -50,7 +54,6 @@ func main() {
 		}
 		w.Write([]byte(fmt.Sprintf("Hello, %s!", name)))
 	})
-	r.Handle("/metrics", promhttp.Handler())
 	// execute server
 	log.Printf("front service is listening on %v", addr)
 	err = http.ListenAndServe(addr, r)

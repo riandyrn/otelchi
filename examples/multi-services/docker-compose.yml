@@ -12,6 +12,8 @@ services:
         condition: service_started
       prometheus:
         condition: service_started
+      otel-collector:
+        condition: service_started
   
   front-svc:
     build:
@@ -25,9 +27,17 @@ services:
     healthcheck:
       test: "curl -XGET http://localhost:8090"
       start_period: 5s
+    depends_on:
+      otel-collector:
+        condition: service_started
     environment:
       - BACK_SERVICE_URL=http://back-svc:8091
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
     ports:
       - 8090:8090
   
@@ -43,10 +53,30 @@ services:
     healthcheck:
       test: "curl -XGET http://localhost:8091"
       start_period: 5s
+    depends_on:
+      otel-collector:
+        condition: service_started
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
     ports:
       - 8091:8091
+  
+  otel-collector:
+    # otel-collector to collect all our monitoring data
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP http receiver
+      - "8888:8888"   # metrics endpoint
+      - "8889:8889"   # Prometheus exporter
   
   jaeger:
     image: jaegertracing/all-in-one:1.56
@@ -55,12 +85,13 @@ services:
       - LOG_LEVEL=debug
     ports:
       - 16686:16686 # for serving jaeger front-end
-      - 4318:4318  # for receiving OTLP data
+      - 6831:6831/udp # for jaeger-agent UDP
     logging:
       driver: none # intentionally turnoff the logging so it doesn't clutter the terminal
-
+  
   prometheus:
-    image: prom/prometheus:v2.53.3
+    # prometheus to collect all our metrics
+    image: prom/prometheus:latest
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command:
