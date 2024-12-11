@@ -34,8 +34,8 @@ services:
       - BACK_SERVICE_URL=http://back-svc:8091
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=grpc
-      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
       - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
       - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
     ports:
@@ -59,8 +59,8 @@ services:
     environment:
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_EXPORTER_OTLP_ENDPOINT=otel-collector:4317
-      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=grpc
-      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=otel-collector:4317
+      - OTEL_EXPORTER_OTLP_METRICS_PROTOCOL=http/protobuf
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://otel-collector:4318/v1/metrics
       - OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http/protobuf
       - OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://otel-collector:4318/v1/traces
     ports:
@@ -68,7 +68,7 @@ services:
   
   otel-collector:
     # otel-collector to collect all our monitoring data
-    image: otel/opentelemetry-collector-contrib:latest
+    image: otel/opentelemetry-collector-contrib:0.115.1
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
@@ -77,6 +77,8 @@ services:
       - "4318:4318"   # OTLP http receiver
       - "8888:8888"   # metrics endpoint
       - "8889:8889"   # Prometheus exporter
+    logging:
+      driver: "none"
   
   jaeger:
     image: jaegertracing/all-in-one:1.56
@@ -91,10 +93,12 @@ services:
   
   prometheus:
     # prometheus to collect all our metrics
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.0.1
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
     ports:
       - "9090:9090"
+    logging:
+      driver: "none"

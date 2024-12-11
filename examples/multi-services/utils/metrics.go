@@ -2,14 +2,14 @@ package utils
 
 import (
 	"context"
+	"go.opentelemetry.io/otel"
 	"time"
 
 	otelchimetric "github.com/riandyrn/otelchi/metric"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
-	"go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
+	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 )
 
 // NewMetricConfig creates metric configuration that includes:
@@ -20,11 +20,11 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 	// create context
 	ctx := context.Background()
 
-	// create otlp exporter
-	exporter, err := otlpmetricgrpc.New(
+	// create otlp exporter using HTTP protocol. the endpoint will be loaded from
+	// OTEL_EXPORTER_OTLP_METRICS_ENDPOINT environment variable
+	exporter, err := otlpmetrichttp.New(
 		ctx,
-		otlpmetricgrpc.WithInsecure(),
-		otlpmetricgrpc.WithEndpoint("otel-collector:4317"),
+		otlpmetrichttp.WithInsecure(),
 	)
 	if err != nil {
 		return otelchimetric.BaseConfig{}, err
@@ -42,12 +42,12 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 	}
 
 	// create meter provider with otlp exporter
-	meterProvider := metric.NewMeterProvider(
-		metric.WithResource(res),
-		metric.WithReader(
-			metric.NewPeriodicReader(
+	meterProvider := sdkmetric.NewMeterProvider(
+		sdkmetric.WithResource(res),
+		sdkmetric.WithReader(
+			sdkmetric.NewPeriodicReader(
 				exporter,
-				metric.WithInterval(15*time.Second),
+				sdkmetric.WithInterval(15*time.Second),
 			),
 		),
 	)

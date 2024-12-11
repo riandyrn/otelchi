@@ -19,7 +19,8 @@ exporters:
     endpoint: "0.0.0.0:8889"
     namespace: "otelchi"
     const_labels:
-      label1: value1
+      environment: development
+      cluster: local
 
   # send traces to OTLP
   otlp/jaeger:
