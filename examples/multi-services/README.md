@@ -9,7 +9,17 @@ There are 2 services in this example:
 
 ![Architecture Diagram](architecture.svg)
 
-All traces will be collected in [Jaeger](https://www.jaegertracing.io/).
+All traces will be collected in [Jaeger](https://www.jaegertracing.io/), and metrics will be collected in [Prometheus](https://prometheus.io/).
+
+## Observability Components
+
+This example demonstrates a complete observability setup with:
+
+- **Distributed Tracing**: Using Jaeger to collect and visualize distributed traces across services
+- **Metrics**: Using Prometheus to collect and monitor metrics from both services
+- **Visualization**: 
+  - Jaeger UI for trace visualization (`http://localhost:16686`)
+  - Prometheus UI for metrics querying and visualization (`http://localhost:9090`)
 
 ## How to Run
 
