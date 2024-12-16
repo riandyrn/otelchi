@@ -24,7 +24,7 @@ type config struct {
 	traceIDResponseHeaderKey      string
 	traceSampledResponseHeaderKey string
 	publicEndpointFn              func(r *http.Request) bool
-  spanVisitor                   SpanVisitor
+	spanVisitor                   SpanVisitor
 }
 
 // Option specifies instrumentation configuration options.

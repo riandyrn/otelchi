@@ -40,12 +40,12 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	if cfg.propagators == nil {
 		cfg.propagators = otel.GetTextMapPropagator()
 	}
-	spanVisitor := func(httpStatus int, span oteltrace.Span) {
-		// default span visitor sets the span status based on the http status code
-		span.SetStatus(httpconv.ServerStatus(httpStatus))
-	}
-	if cfg.SpanVisitor != nil {
-		spanVisitor = cfg.SpanVisitor
+
+	if cfg.spanVisitor == nil {
+		cfg.spanVisitor = func(httpStatus int, span oteltrace.Span) {
+			// default span visitor sets the span status based on the http status code
+			span.SetStatus(httpconv.ServerStatus(httpStatus))
+		}
 	}
 
 	return func(handler http.Handler) http.Handler {
@@ -60,9 +60,9 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 
 type traceware struct {
 	config
-	serverName  string
-	tracer      oteltrace.Tracer
-	handler     http.Handler
+	serverName string
+	tracer     oteltrace.Tracer
+	handler    http.Handler
 }
 
 type recordingResponseWriter struct {
