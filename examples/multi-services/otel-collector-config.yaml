@@ -1,0 +1,45 @@
+# This is where we set up our OpenTelemetry collector
+
+receivers:
+  # setting up how we receive data from our services
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  # bundle up the data before sending it out
+  batch:
+
+exporters:
+  # send metrics to otlp
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "otelchi"
+    const_labels:
+      environment: development
+      cluster: local
+
+  # send traces to OTLP
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # keep some logs around for when we need to debug stuff
+  debug:
+    verbosity: detailed
+
+service:
+  # here is where everything sets
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger, debug]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus, debug]

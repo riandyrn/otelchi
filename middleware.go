@@ -2,12 +2,15 @@ package otelchi
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/felixge/httpsnoop"
 	"github.com/go-chi/chi/v5"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
 
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
@@ -27,15 +30,15 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	for _, opt := range opts {
 		opt.apply(&cfg)
 	}
-	if cfg.TracerProvider == nil {
-		cfg.TracerProvider = otel.GetTracerProvider()
+	if cfg.tracerProvider == nil {
+		cfg.tracerProvider = otel.GetTracerProvider()
 	}
-	tracer := cfg.TracerProvider.Tracer(
+	tracer := cfg.tracerProvider.Tracer(
 		tracerName,
 		oteltrace.WithInstrumentationVersion(Version()),
 	)
-	if cfg.Propagators == nil {
-		cfg.Propagators = otel.GetTextMapPropagator()
+	if cfg.propagators == nil {
+		cfg.propagators = otel.GetTextMapPropagator()
 	}
 	spanVisitor := func(httpStatus int, span oteltrace.Span) {
 		// default span visitor sets the span status based on the http status code
@@ -47,31 +50,19 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 
 	return func(handler http.Handler) http.Handler {
 		return traceware{
-			serverName:             serverName,
-			tracer:                 tracer,
-			propagators:            cfg.Propagators,
-			handler:                handler,
-			chiRoutes:              cfg.ChiRoutes,
-			reqMethodInSpanName:    cfg.RequestMethodInSpanName,
-			filters:                cfg.Filters,
-			traceResponseHeaderKey: cfg.TraceResponseHeaderKey,
-			publicEndpointFn:       cfg.PublicEndpointFn,
-			spanVisitor:            spanVisitor,
+			config:     cfg,
+			serverName: serverName,
+			tracer:     tracer,
+			handler:    handler,
 		}
 	}
 }
 
 type traceware struct {
-	serverName             string
-	tracer                 oteltrace.Tracer
-	propagators            propagation.TextMapPropagator
-	handler                http.Handler
-	chiRoutes              chi.Routes
-	reqMethodInSpanName    bool
-	filters                []Filter
-	traceResponseHeaderKey string
-	publicEndpointFn       func(r *http.Request) bool
-	spanVisitor            SpanVisitor
+	config
+	serverName  string
+	tracer      oteltrace.Tracer
+	handler     http.Handler
 }
 
 type recordingResponseWriter struct {
@@ -148,7 +139,7 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		rctx := chi.NewRouteContext()
 		if tw.chiRoutes.Match(rctx, r.Method, r.URL.Path) {
 			routePattern = rctx.RoutePattern()
-			spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
+			spanName = addPrefixToSpanName(tw.requestMethodInSpanName, r.Method, routePattern)
 			spanAttributes = append(spanAttributes, semconv.HTTPRoute(routePattern))
 		}
 	}
@@ -184,9 +175,10 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, span := tw.tracer.Start(ctx, spanName, spanOpts...)
 	defer span.End()
 
-	// put trace_id to response header only when WithTraceResponseHeaderKey is used
-	if len(tw.traceResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
-		w.Header().Add(tw.traceResponseHeaderKey, span.SpanContext().TraceID().String())
+	// put trace_id to response header only when `WithTraceIDResponseHeader` is used
+	if len(tw.traceIDResponseHeaderKey) > 0 && span.SpanContext().HasTraceID() {
+		w.Header().Add(tw.traceIDResponseHeaderKey, span.SpanContext().TraceID().String())
+		w.Header().Add(tw.traceSampledResponseHeaderKey, strconv.FormatBool(span.SpanContext().IsSampled()))
 	}
 
 	// get recording response writer
@@ -203,8 +195,14 @@ func (tw traceware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		routePattern = chi.RouteContext(r.Context()).RoutePattern()
 		span.SetAttributes(semconv.HTTPRoute(routePattern))
 
-		spanName = addPrefixToSpanName(tw.reqMethodInSpanName, r.Method, routePattern)
+		spanName = addPrefixToSpanName(tw.requestMethodInSpanName, r.Method, routePattern)
 		span.SetName(spanName)
+	}
+
+	// check if the request is a WebSocket upgrade request
+	if isWebSocketRequest(r) {
+		span.SetStatus(codes.Unset, "WebSocket upgrade request")
+		return
 	}
 
 	// set status code attribute
@@ -225,4 +223,18 @@ func addPrefixToSpanName(shouldAdd bool, prefix, spanName string) string {
 		spanName = prefix + " " + spanName
 	}
 	return spanName
+}
+
+// isWebSocketRequest checks if an HTTP request is a WebSocket upgrade request
+// Fix: https://github.com/riandyrn/otelchi/issues/66
+func isWebSocketRequest(r *http.Request) bool {
+	// Check if the Connection header contains "Upgrade"
+	connectionHeader := r.Header.Get("Connection")
+	if !strings.Contains(strings.ToLower(connectionHeader), "upgrade") {
+		return false
+	}
+
+	// Check if the Upgrade header is "websocket"
+	upgradeHeader := r.Header.Get("Upgrade")
+	return strings.ToLower(upgradeHeader) == "websocket"
 }

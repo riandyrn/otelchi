@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi"
 	"github.com/riandyrn/otelchi/examples/multi-services/utils"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -28,9 +29,21 @@ func main() {
 	if err != nil {
 		log.Fatalf("unable to initialize tracer due: %v", err)
 	}
+
+	// setup metrics
+	metricConfig, err := utils.NewMetricConfig(serviceName)
+	if err != nil {
+		log.Fatalf("unable to initialize metrics due: %v", err)
+	}
+
 	// define router
 	r := chi.NewRouter()
-	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(
+		otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)),
+		otelchimetric.NewRequestDurationMillis(metricConfig),
+		otelchimetric.NewRequestInFlight(metricConfig),
+		otelchimetric.NewResponseSizeBytes(metricConfig),
+	)
 	r.Get("/", utils.HealthCheckHandler)
 	r.Get("/greet", func(w http.ResponseWriter, r *http.Request) {
 		name, err := getRandomName(r.Context(), tracer)
