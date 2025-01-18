@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Upgrade `go.opentelemetry.io/otel`, `go.opentelemetry.io/otel/sdk`, & `go.opentelemetry.io/otel/trace` to `v1.34.0`. ([#87])
 - Upgrade `go.opentelemetry.io/otel/metric` to `v1.34.0`. ([#87])
-- Set the metric version to be the same as middleware version which `v0.12.0` this is to make it easy for maintainer of this repo to maintain the versioning.
+- Set the metric version to be the same as middleware version which is `v0.12.0` to make it easy for maintainer of this repo to maintain the versioning. ([#88])
 
 ## [0.11.0] - 2024-11-27
 
@@ -222,6 +222,7 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
+[#88]: https://github.com/riandyrn/otelchi/pull/88
 [#87]: https://github.com/riandyrn/otelchi/pull/87
 [#74]: https://github.com/riandyrn/otelchi/pull/74
 [#70]: https://github.com/riandyrn/otelchi/pull/70
