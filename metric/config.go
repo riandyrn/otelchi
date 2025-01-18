@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/felixge/httpsnoop"
+	"github.com/riandyrn/otelchi/version"
 	"go.opentelemetry.io/otel"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
@@ -58,7 +59,7 @@ func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	cfg.Meter = cfg.meterProvider.Meter(
 		ScopeName,
 		otelmetric.WithSchemaURL(semconv.SchemaURL),
-		otelmetric.WithInstrumentationVersion(Version()),
+		otelmetric.WithInstrumentationVersion(version.Version()),
 		otelmetric.WithInstrumentationAttributes(
 			semconv.ServiceName(serverName),
 		),

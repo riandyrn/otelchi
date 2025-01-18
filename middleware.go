@@ -8,6 +8,7 @@ import (
 
 	"github.com/felixge/httpsnoop"
 	"github.com/go-chi/chi/v5"
+	"github.com/riandyrn/otelchi/version"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
@@ -35,7 +36,7 @@ func Middleware(serverName string, opts ...Option) func(next http.Handler) http.
 	}
 	tracer := cfg.tracerProvider.Tracer(
 		tracerName,
-		oteltrace.WithInstrumentationVersion(Version()),
+		oteltrace.WithInstrumentationVersion(version.Version()),
 	)
 	if cfg.propagators == nil {
 		cfg.propagators = otel.GetTextMapPropagator()
