@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/riandyrn/otelchi"
+	"github.com/riandyrn/otelchi/version"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -15,6 +15,6 @@ var versionRegex = regexp.MustCompile(`^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)
 	`(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`)
 
 func TestVersionSemver(t *testing.T) {
-	v := otelchi.Version()
+	v := version.Version()
 	assert.NotNil(t, versionRegex.FindStringSubmatch(v), "version is not semver: %s", v)
 }
