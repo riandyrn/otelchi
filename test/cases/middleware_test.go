@@ -2,11 +2,14 @@ package otelchi_test
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -114,6 +117,33 @@ func TestResponseWriterInterfaces(t *testing.T) {
 	}
 
 	router.ServeHTTP(w, r)
+}
+
+func TestSuperfluousWriteHeader(t *testing.T) {
+	var buf bytes.Buffer
+	log.SetOutput(&buf)
+
+	r := chi.NewRouter()
+	r.Use(otelchi.Middleware("foobar"))
+
+	r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("Hello"))
+		w.WriteHeader(http.StatusOK) // This is superfluous trigger
+	})
+
+	ts := httptest.NewServer(r)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/test")
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	assert.Equal(t, "Hello", string(body))
+
+	logOutput := buf.String()
+	assert.False(t, strings.Contains(logOutput, "http: superfluous"))
 }
 
 type testResponseWriter struct {
