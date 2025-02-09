@@ -89,8 +89,10 @@ func getRRW(writer http.ResponseWriter) *recordingResponseWriter {
 				if !rrw.written {
 					rrw.written = true
 					rrw.status = statusCode
+					// only call next WriteHeader when header is not written yet
+					// this is to prevent superfluous WriteHeader call
+					next(statusCode)
 				}
-				next(statusCode)
 			}
 		},
 	})
