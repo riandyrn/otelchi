@@ -127,6 +127,7 @@ func TestSuperfluousWriteHeader(t *testing.T) {
 	r.Use(otelchi.Middleware("foobar"))
 
 	r.Get("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("Hello"))
 		w.WriteHeader(http.StatusOK) // This is superfluous trigger
 	})
@@ -141,6 +142,7 @@ func TestSuperfluousWriteHeader(t *testing.T) {
 	body, err := io.ReadAll(resp.Body)
 	assert.NoError(t, err)
 	assert.Equal(t, "Hello", string(body))
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	logOutput := buf.String()
 	assert.False(t, strings.Contains(logOutput, "http: superfluous"))
