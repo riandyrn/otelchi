@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.12.1] - 2025-02-12
+
+### Fixed
+
+- Fix superfluous header writer ([#89])
+
 ## [0.12.0] - 2025-01-18
 
 ### Changed
@@ -222,6 +228,7 @@ It contains instrumentation for trace and depends on:
 - Example code for a basic usage.
 - Apache-2.0 license.
 
+[#89]: https://github.com/riandyrn/otelchi/pull/89
 [#88]: https://github.com/riandyrn/otelchi/pull/88
 [#87]: https://github.com/riandyrn/otelchi/pull/87
 [#74]: https://github.com/riandyrn/otelchi/pull/74
@@ -253,7 +260,8 @@ It contains instrumentation for trace and depends on:
 [#2]: https://github.com/riandyrn/otelchi/pull/2
 [#1]: https://github.com/riandyrn/otelchi/pull/1
 
-[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/riandyrn/otelchi/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.1
 [0.12.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.12.0
 [0.11.0]: https://github.com/riandyrn/otelchi/releases/tag/v0.11.0
 [0.10.1]: https://github.com/riandyrn/otelchi/releases/tag/v0.10.1
