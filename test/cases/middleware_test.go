@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -97,6 +99,71 @@ func TestPropagationWithCustomPropagators(t *testing.T) {
 
 	router.ServeHTTP(w, r)
 	assert.True(t, called, "failed to run test")
+}
+
+func TestWithTracerProvider(t *testing.T) {
+	spanRecorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+	tracerProvider.RegisterSpanProcessor(spanRecorder)
+
+	router := chi.NewRouter()
+	router.Use(otelchi.Middleware("test-server", otelchi.WithTracerProvider(tracerProvider)))
+	router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("OK"))
+		assert.NoError(t, err)
+	})
+
+	r := httptest.NewRequest("GET", "/test", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+
+	// Verify that a span was recorded using the provided TracerProvider
+	spans := spanRecorder.Ended()
+	assert.Len(t, spans, 1)
+	assert.Equal(t, "/test", spans[0].Name())
+}
+
+func TestSpanFromRequestContext(t *testing.T) {
+	spanRecorder := tracetest.NewSpanRecorder()
+	tracerProvider := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+	)
+	tracerProvider.RegisterSpanProcessor(spanRecorder)
+
+	router := chi.NewRouter()
+	router.Use(otelchi.Middleware("test-server"))
+	router.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, err := w.Write([]byte("OK"))
+		assert.NoError(t, err)
+	})
+
+	tracer := tracerProvider.Tracer("test-tracer")
+	ctx, parentSpan := tracer.Start(context.Background(), "parent-span")
+	defer parentSpan.End()
+
+	r := httptest.NewRequest("GET", "/test", nil)
+	r = r.WithContext(ctx)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+
+	spans := spanRecorder.Ended()
+	// Should have 2 spans: the parent span and the middleware span
+	assert.GreaterOrEqual(t, len(spans), 1)
+
+	// Find the middleware span
+	var middlewareSpan sdktrace.ReadOnlySpan
+	for _, span := range spans {
+		if span.Name() == "/test" {
+			middlewareSpan = span
+			break
+		}
+	}
+	assert.NotNil(t, middlewareSpan)
+	assert.Equal(t, parentSpan.SpanContext().TraceID(), middlewareSpan.SpanContext().TraceID())
 }
 
 func TestResponseWriterInterfaces(t *testing.T) {
