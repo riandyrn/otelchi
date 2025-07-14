@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	otelmetric "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
@@ -39,7 +38,7 @@ func NewResponseSizeBytes(cfg BaseConfig) func(next http.Handler) http.Handler {
 				r.Context(),
 				int64(rrw.writtenBytes),
 				otelmetric.WithAttributes(
-					httpconv.ServerRequest(cfg.ServerName, r)...,
+					cfg.AttributesFunc(r)...,
 				),
 			)
 		})
