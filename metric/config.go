@@ -7,8 +7,10 @@ import (
 	"github.com/felixge/httpsnoop"
 	"github.com/riandyrn/otelchi/version"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
+	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
@@ -21,8 +23,9 @@ type BaseConfig struct {
 	meterProvider otelmetric.MeterProvider
 
 	// actual config state
-	Meter      otelmetric.Meter
-	ServerName string
+	Meter          otelmetric.Meter
+	ServerName     string
+	AttributesFunc func(req *http.Request) []attribute.KeyValue
 }
 
 // Option specifies instrumentation configuration options.
@@ -44,10 +47,21 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 	})
 }
 
+// WithAttributesFunc specifies a function called to set attributes on a metric record for a given request.
+// If none is specified, otel httpconv.ServerRequest is used.
+func WithAttributesFunc(fn func(req *http.Request) []attribute.KeyValue) Option {
+	return optionFunc(func(cfg *BaseConfig) {
+		cfg.AttributesFunc = fn
+	})
+}
+
 func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
 	cfg := BaseConfig{
 		ServerName: serverName,
+		AttributesFunc: func(req *http.Request) []attribute.KeyValue {
+			return httpconv.ServerRequest(serverName, req)
+		},
 	}
 	for _, opt := range opts {
 		opt.apply(&cfg)
