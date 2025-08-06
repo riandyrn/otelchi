@@ -1,13 +1,13 @@
-FROM debian:10.13
+FROM alpine:3.22
 
-RUN apt-get update && apt-get install -y \
-	gcc \
+RUN apk add --no-cache \
+	build-base \
+	bash \
 	curl \
 	git \
 	unzip \
 	wget \
-	make \
-	&& rm -rf /var/lib/apt/lists/*
+	&& rm -rf /var/cache/apk/*
 
 # Install Gobrew
 ENV PATH="/root/.gobrew/current/bin:/root/.gobrew/bin:$PATH"
