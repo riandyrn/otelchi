@@ -48,7 +48,7 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 }
 
 // WithAttributesFunc specifies a function called to set attributes on a metric record for a given request.
-// If none is specified, otel httpconv.ServerRequest is used.
+// If none is specified, otel `http.method`, `http.scheme` and `http.route` is used.
 func WithAttributesFunc(fn func(req *http.Request) []attribute.KeyValue) Option {
 	return optionFunc(func(cfg *BaseConfig) {
 		cfg.AttributesFunc = fn
