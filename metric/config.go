@@ -5,12 +5,12 @@ import (
 	"sync"
 
 	"github.com/felixge/httpsnoop"
+	"github.com/go-chi/chi"
 	"github.com/riandyrn/otelchi/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
-	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
@@ -60,7 +60,21 @@ func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	cfg := BaseConfig{
 		ServerName: serverName,
 		AttributesFunc: func(req *http.Request) []attribute.KeyValue {
-			return httpconv.ServerRequest(serverName, req)
+			schema := semconv.HTTPSchemeHTTP
+			if req.TLS != nil {
+				schema = semconv.HTTPSchemeHTTPS
+			}
+
+			attrs := []attribute.KeyValue{
+				semconv.HTTPMethod(req.Method),
+				schema,
+			}
+
+			if route := chi.RouteContext(req.Context()).RoutePattern(); route != "" {
+				attrs = append(attrs, semconv.HTTPRoute(route))
+			}
+
+			return attrs
 		},
 	}
 	for _, opt := range opts {
