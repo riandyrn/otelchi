@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/felixge/httpsnoop"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi/version"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
