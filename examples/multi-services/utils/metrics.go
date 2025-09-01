@@ -62,9 +62,15 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 	return otelchimetric.NewBaseConfig(serviceName,
 		otelchimetric.WithMeterProvider(meterProvider),
 		otelchimetric.WithAttributesFunc(func(r *http.Request) []attribute.KeyValue {
+
+			schema := semconv.HTTPSchemeHTTP
+			if r.TLS != nil {
+				schema = semconv.HTTPSchemeHTTPS
+			}
+
 			attrs := []attribute.KeyValue{
 				semconv.HTTPMethod(r.Method),
-				semconv.HTTPScheme(r.URL.Scheme),
+				schema,
 			}
 			if route := chi.RouteContext(r.Context()).RoutePattern(); route != "" {
 				attrs = append(attrs, semconv.HTTPRoute(route))
