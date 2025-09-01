@@ -6,7 +6,6 @@ import (
 	"time"
 
 	otelmetric "go.opentelemetry.io/otel/metric"
-	"go.opentelemetry.io/otel/semconv/v1.20.0/httpconv"
 )
 
 const (
@@ -40,7 +39,7 @@ func NewRequestDurationMillis(cfg BaseConfig) func(next http.Handler) http.Handl
 				r.Context(),
 				int64(duration.Milliseconds()),
 				otelmetric.WithAttributes(
-					httpconv.ServerRequest(cfg.ServerName, r)...,
+					cfg.AttributesFunc(r)...,
 				),
 			)
 		})

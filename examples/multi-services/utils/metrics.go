@@ -2,10 +2,13 @@ package utils
 
 import (
 	"context"
-	"go.opentelemetry.io/otel"
+	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	otelchimetric "github.com/riandyrn/otelchi/metric"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -58,5 +61,21 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 	// create and return base config for metrics with meter provider
 	return otelchimetric.NewBaseConfig(serviceName,
 		otelchimetric.WithMeterProvider(meterProvider),
+		otelchimetric.WithAttributesFunc(func(r *http.Request) []attribute.KeyValue {
+			schema := semconv.HTTPSchemeHTTP
+			if r.TLS != nil {
+				schema = semconv.HTTPSchemeHTTPS
+			}
+
+			attrs := []attribute.KeyValue{
+				semconv.HTTPMethod(r.Method),
+				semconv.NetProtocolName("http"), // custom defined attribute
+				schema,
+			}
+			if route := chi.RouteContext(r.Context()).RoutePattern(); route != "" {
+				attrs = append(attrs, semconv.HTTPRoute(route))
+			}
+			return attrs
+		}),
 	), nil
 }

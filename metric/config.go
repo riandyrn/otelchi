@@ -5,8 +5,10 @@ import (
 	"sync"
 
 	"github.com/felixge/httpsnoop"
+	"github.com/go-chi/chi/v5"
 	"github.com/riandyrn/otelchi/version"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 	semconv "go.opentelemetry.io/otel/semconv/v1.20.0"
 )
@@ -21,8 +23,9 @@ type BaseConfig struct {
 	meterProvider otelmetric.MeterProvider
 
 	// actual config state
-	Meter      otelmetric.Meter
-	ServerName string
+	Meter          otelmetric.Meter
+	ServerName     string
+	AttributesFunc func(req *http.Request) []attribute.KeyValue
 }
 
 // Option specifies instrumentation configuration options.
@@ -44,10 +47,35 @@ func WithMeterProvider(provider otelmetric.MeterProvider) Option {
 	})
 }
 
+// WithAttributesFunc specifies a function called to set attributes on a metric record for a given request.
+// If none is specified, otel `http.method`, `http.scheme` and `http.route` is used.
+func WithAttributesFunc(fn func(req *http.Request) []attribute.KeyValue) Option {
+	return optionFunc(func(cfg *BaseConfig) {
+		cfg.AttributesFunc = fn
+	})
+}
+
 func NewBaseConfig(serverName string, opts ...Option) BaseConfig {
 	// init base config
 	cfg := BaseConfig{
 		ServerName: serverName,
+		AttributesFunc: func(req *http.Request) []attribute.KeyValue {
+			schema := semconv.HTTPSchemeHTTP
+			if req.TLS != nil {
+				schema = semconv.HTTPSchemeHTTPS
+			}
+
+			attrs := []attribute.KeyValue{
+				semconv.HTTPMethod(req.Method),
+				schema,
+			}
+
+			if route := chi.RouteContext(req.Context()).RoutePattern(); route != "" {
+				attrs = append(attrs, semconv.HTTPRoute(route))
+			}
+
+			return attrs
+		},
 	}
 	for _, opt := range opts {
 		opt.apply(&cfg)
