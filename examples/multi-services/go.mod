@@ -7,7 +7,6 @@ replace github.com/riandyrn/otelchi => ../../
 require (
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/riandyrn/otelchi v0.12.1
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.56.0
 	go.opentelemetry.io/otel v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.34.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0
