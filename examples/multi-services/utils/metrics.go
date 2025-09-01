@@ -62,7 +62,6 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 	return otelchimetric.NewBaseConfig(serviceName,
 		otelchimetric.WithMeterProvider(meterProvider),
 		otelchimetric.WithAttributesFunc(func(r *http.Request) []attribute.KeyValue {
-
 			schema := semconv.HTTPSchemeHTTP
 			if r.TLS != nil {
 				schema = semconv.HTTPSchemeHTTPS
@@ -70,6 +69,7 @@ func NewMetricConfig(serviceName string) (otelchimetric.BaseConfig, error) {
 
 			attrs := []attribute.KeyValue{
 				semconv.HTTPMethod(r.Method),
+				semconv.NetProtocolName("http"), // custom defined attribute
 				schema,
 			}
 			if route := chi.RouteContext(r.Context()).RoutePattern(); route != "" {
