@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Add `http.response.status_code` attribute to the `http.server.request.duration` metric so HTTP error-rate (4xx/5xx) breakdowns can be derived from metrics.
+
 ## [0.12.3] - 2026-05-03
 
 ### Added

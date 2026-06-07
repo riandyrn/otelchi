@@ -3,9 +3,10 @@ package metric
 import (
 	"fmt"
 	"net/http"
-	"time"
 
+	"github.com/felixge/httpsnoop"
 	otelmetric "go.opentelemetry.io/otel/metric"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 )
 
 const (
@@ -35,17 +36,17 @@ func NewServerRequestDuration(cfg BaseConfig) func(next http.Handler) http.Handl
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			startTime := time.Now()
+			// CaptureMetrics runs next and reports the final status code (defaulting
+			// to 200 when the handler never calls WriteHeader) and the duration.
+			metrics := httpsnoop.CaptureMetrics(next, w, r)
 
-			next.ServeHTTP(w, r)
+			attrs := cfg.AttributesFunc(r)
+			attrs = append(attrs, semconv.HTTPResponseStatusCode(metrics.Code))
 
-			duration := time.Since(startTime)
 			histogram.Record(
 				r.Context(),
-				float64(duration)/float64(time.Second),
-				otelmetric.WithAttributes(
-					cfg.AttributesFunc(r)...,
-				),
+				metrics.Duration.Seconds(),
+				otelmetric.WithAttributes(attrs...),
 			)
 		})
 	}
